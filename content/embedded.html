@@ -1,0 +1,593 @@
+<p><strong>Embedded C</strong></p>
+<p>Concepts in Detail and Interview Cheat Sheet</p>
+<p><em>Microcontroller fundamentals, registers, interrupts, memory, protocols, RTOS, code examples, interview Q&amp;A and quick reference</em></p>
+<h2 id="contents">Contents</h2>
+<p><strong>Part A: Concepts in Detail</strong></p>
+<ul>
+<li>1. Embedded Systems Basics</li>
+<li>2. Data Types, Endianness, Alignment</li>
+<li>3. Bit Manipulation for Registers</li>
+<li>4. volatile, const, static</li>
+<li>5. Memory-Mapped I/O and Registers</li>
+<li>6. Memory Layout, Startup and Linker</li>
+<li>7. Interrupts</li>
+<li>8. Peripherals (GPIO, Timers, ADC, DMA, Watchdog)</li>
+<li>9. Communication Protocols</li>
+<li>10. Timing and Scheduling Approaches</li>
+<li>11. RTOS Concepts</li>
+<li>12. ARM Cortex-M Essentials</li>
+<li>13. Coding Practices (MISRA, Defensive Coding)</li>
+<li>14. Optimization for Small Devices</li>
+<li>15. Bootloaders and Firmware Updates</li>
+<li>16. Debugging</li>
+<li>17. Interview Questions with Answers</li>
+<li>18. Coding Problems with Solutions</li>
+<li>19. Study Tips and Resources</li>
+</ul>
+<p><strong>Part B: Embedded C Cheat Sheet</strong></p>
+<ul>
+<li>B1. Fixed-Width Types</li>
+<li>B2. Register and Bit Macros</li>
+<li>B3. volatile / const / static Combinations</li>
+<li>B4. Memory Sections</li>
+<li>B5. Interrupt Rules</li>
+<li>B6. Protocol Comparison</li>
+<li>B7. Formulas</li>
+<li>B8. RTOS Primitives</li>
+<li>B9. Cortex-M Quick Reference</li>
+<li>B10. Ready-to-Use Snippets</li>
+<li>B11. Common Bugs</li>
+<li>B12. Last-Minute Checklist</li>
+</ul>
+<h1 id="part-a-concepts-in-detail">Part A: Concepts in Detail</h1>
+<h2 id="1-embedded-systems-basics">1. Embedded Systems Basics</h2>
+<p>An embedded system is a computer built into a device to do a dedicated job (washing machine controller, car ECU, pacemaker, smart meter). It usually has tight limits on memory, power, cost and timing.</p>
+<ul>
+<li><strong>Microcontroller (MCU):</strong> CPU, Flash, SRAM, and peripherals (GPIO, timers, ADC, UART, SPI, I2C) on one chip. Examples: AVR/ATmega, PIC, STM32 (ARM Cortex-M), ESP32, 8051.</li>
+<li><strong>Microprocessor (MPU):</strong> CPU only (or CPU with few extras); needs external RAM, storage and peripherals; usually runs Linux. Examples: Cortex-A, Raspberry Pi SoC.</li>
+<li><strong>Harvard vs von Neumann:</strong> Harvard has separate buses and memories for code and data (AVR, many DSPs, Cortex-M3/M4 internally); von Neumann shares one bus.</li>
+<li><strong>Memory types:</strong> Flash (non-volatile, holds code and constants, erased in blocks, limited write cycles), SRAM (volatile, fast, holds variables and stack), EEPROM (non-volatile, byte-erasable, slow), ROM (fixed at manufacture).</li>
+<li><strong>Bare metal vs RTOS:</strong> bare metal runs a super-loop plus interrupts; an RTOS (FreeRTOS, Zephyr, ThreadX) adds tasks, scheduling and synchronization.</li>
+<li><strong>Real-time:</strong> correctness depends on timing. Hard real-time: a missed deadline is a failure (airbag). Soft: occasional misses are tolerable (video playback). Key terms: determinism, latency, jitter, worst-case execution time (WCET).</li>
+<li><strong>Toolchain:</strong> cross-compiler (arm-none-eabi-gcc) builds on a PC for a different target; the linker script places code and data in the chip memory map; the map file shows what used how much memory; a programmer/debugger (ST-Link, J-Link) flashes the chip over JTAG or SWD.</li>
+<li><strong>Typical constraints:</strong> a few KB of RAM, no OS, no virtual memory, no file system, no heap (often), strict power budgets, and code that must run for years without reset.</li>
+</ul>
+<h2 id="2-data-types-endianness-alignment">2. Data Types, Endianness, Alignment</h2>
+<ul>
+<li>Use fixed-width types from <code>&lt;stdint.h&gt;</code>: <code>uint8_t</code>, <code>int16_t</code>, <code>uint32_t</code>, <code>int64_t</code>. Plain <code>int</code> is 16 bits on many 8/16-bit MCUs and 32 bits on ARM, so it is not portable.</li>
+<li>Use <code>uint8_t</code> for bytes and register-sized values; use <code>bool</code> from <code>&lt;stdbool.h&gt;</code> for flags.</li>
+<li><strong>Endianness:</strong> little endian stores the least significant byte at the lowest address (ARM Cortex-M, x86, AVR). Big endian stores the most significant byte first (network byte order, some PowerPC/older MCUs). Convert when sending multi-byte values over a protocol that defines an order.</li>
+<li><strong>Alignment:</strong> a 32-bit value should sit at an address divisible by 4. Cortex-M0/M0+ fault on unaligned access; Cortex-M3 and above handle many unaligned accesses with extra cycles.</li>
+<li><strong>Struct padding:</strong> the compiler adds padding bytes for alignment. <code>__attribute__((packed))</code> removes padding but may cause unaligned access. For protocol frames, prefer reading bytes into fields explicitly rather than casting a buffer to a struct.</li>
+<li><strong>Integer promotion:</strong> 8- and 16-bit values are promoted to int in expressions. Beware of <code>~(uint8_t value)</code> producing a negative or large int; cast the result back.</li>
+<li><strong>Overflow:</strong> unsigned wraps (well defined); signed overflow is undefined.</li>
+<li><strong>Floating point:</strong> without an FPU (M0, M3, AVR) float math is done in slow software; prefer integers or fixed-point.</li>
+</ul>
+<h2 id="3-bit-manipulation-for-registers">3. Bit Manipulation for Registers</h2>
+<p>Hardware is controlled by setting and clearing individual bits in registers. These patterns are used constantly.</p>
+<pre><code>#define BIT(n)            (1UL &lt;&lt; (n))
+#define SET_BIT(reg, n)   ((reg) |=  BIT(n))
+#define CLR_BIT(reg, n)   ((reg) &amp;= ~BIT(n))
+#define TOG_BIT(reg, n)   ((reg) ^=  BIT(n))
+#define READ_BIT(reg, n)  (((reg) &gt;&gt; (n)) &amp; 1UL)</code></pre>
+<pre><code>/* multi-bit field: set bits [pos+width-1 : pos] to value */
+#define SET_FIELD(reg, pos, width, val) \
+    ((reg) = ((reg) &amp; ~(((1UL &lt;&lt; (width)) - 1UL) &lt;&lt; (pos))) | (((val) &amp; ((1UL &lt;&lt; (width)) - 1UL)) &lt;&lt; (pos)))</code></pre>
+<ul>
+<li>Use <code>1UL</code> (unsigned) so that shifting into bit 31 does not hit signed overflow.</li>
+<li>Read-modify-write (<code>reg |= mask</code>) is not atomic. If an ISR modifies the same register between the read and the write, a change is lost. Prefer dedicated set/clear registers (for example STM32 BSRR) or disable interrupts around the update.</li>
+<li><strong>Bit-fields</strong> in structs are convenient but their bit order and packing are implementation-defined, so avoid them for hardware registers in portable code. Use masks and shifts.</li>
+<li>Some registers are <strong>write-1-to-clear</strong> (interrupt flags): writing 1 clears the flag, so do not use read-modify-write on them.</li>
+</ul>
+<h2 id="4-volatile-const-static">4. volatile, const, static</h2>
+<ul>
+<li><strong><code>volatile</code></strong> tells the compiler that a value can change outside the code it can see, so every access must really happen and must not be cached in a register or removed.</li>
+<li>Use it for: memory-mapped peripheral registers, variables shared between an ISR and main code, and variables changed by hardware or another core.</li>
+<li>It does not make operations atomic and does not replace a mutex or critical section. A 32-bit <code>volatile</code> counter read on an 8-bit MCU can still be torn.</li>
+</ul>
+<pre><code>volatile uint8_t data_ready = 0;      /* set in ISR, read in main */</code></pre>
+<pre><code>void USART_IRQHandler(void) { data_ready = 1; }</code></pre>
+<pre><code>int main(void) {
+    while (!data_ready) { }           /* without volatile, compiler may loop forever */
+    /* process data */
+}</code></pre>
+<ul>
+<li><strong><code>const volatile</code></strong>: read-only for your code but can change by itself, for example a status register or a hardware timer count: <code>const volatile uint32_t *STATUS</code>.</li>
+<li><strong><code>volatile uint8_t *p</code></strong>: pointer to volatile data. <strong><code>uint8_t *volatile p</code></strong>: the pointer itself is volatile.</li>
+<li><strong><code>const</code></strong> globals are placed in Flash (.rodata), saving RAM. Put lookup tables, strings and configuration in <code>const</code> arrays. On AVR (Harvard) Flash data needs special access (<code>PROGMEM</code>).</li>
+<li><strong><code>static</code></strong> local: persists across calls (stored in .data or .bss, not on the stack). <strong><code>static</code></strong> global/function: file-private; use it to limit visibility and avoid name clashes.</li>
+<li><strong><code>inline</code></strong> / <code>static inline</code> replace function-like macros when you want type checking with zero call overhead.</li>
+</ul>
+<h2 id="5-memory-mapped-i-o-and-registers">5. Memory-Mapped I/O and Registers</h2>
+<p>Peripherals appear as ordinary memory addresses. Writing to an address controls hardware; reading returns hardware state.</p>
+<pre><code>/* Direct address */
+#define GPIOA_ODR   (*(volatile uint32_t *)0x48000014UL)
+GPIOA_ODR |= (1UL &lt;&lt; 5);              /* LED on pin 5 high */</code></pre>
+<pre><code>/* Struct overlay (CMSIS style) */
+typedef struct {
+    volatile uint32_t MODER;   /* 0x00 mode           */
+    volatile uint32_t OTYPER;  /* 0x04 output type    */
+    volatile uint32_t OSPEEDR; /* 0x08 speed          */
+    volatile uint32_t PUPDR;   /* 0x0C pull up/down   */
+    volatile uint32_t IDR;     /* 0x10 input data     */
+    volatile uint32_t ODR;     /* 0x14 output data    */
+} GPIO_TypeDef;</code></pre>
+<pre><code>#define GPIOA ((GPIO_TypeDef *)0x48000000UL)</code></pre>
+<pre><code>GPIOA-&gt;MODER |= (1UL &lt;&lt; (5 * 2));     /* pin 5 as output */
+GPIOA-&gt;ODR   ^= (1UL &lt;&lt; 5);           /* toggle LED      */</code></pre>
+<ul>
+<li>Steps to use any peripheral: enable its clock, configure pins (mode, pull, alternate function), configure the peripheral, enable interrupts if needed, then enable the peripheral.</li>
+<li>Typical GPIO modes: input (floating, pull-up, pull-down), output push-pull, output open-drain, alternate function, analog.</li>
+<li>A floating input picks up noise and reads random values; always use a pull-up or pull-down.</li>
+<li><strong>Push-pull</strong> drives both high and low. <strong>Open-drain</strong> only pulls low; an external pull-up makes the high level (used by I2C and for wired-AND buses).</li>
+</ul>
+<h2 id="6-memory-layout-startup-and-linker">6. Memory Layout, Startup and Linker</h2>
+<div class="tw"><table><tr><th><strong>Section</strong></th><th><strong>Lives in</strong></th><th><strong>Contents</strong></th></tr><tr><td><code>.text</code></td><td>Flash</td><td>Program code and vector table</td></tr><tr><td><code>.rodata</code></td><td>Flash</td><td><code>const</code> data, string literals, lookup tables</td></tr><tr><td><code>.data</code></td><td>Flash (image) and RAM (runtime)</td><td>Initialized global and static variables; copied from Flash to RAM at startup</td></tr><tr><td><code>.bss</code></td><td>RAM</td><td>Uninitialized or zero-initialized globals and statics; zeroed at startup</td></tr><tr><td>Heap</td><td>RAM</td><td>Dynamic memory (<code>malloc</code>); grows upward</td></tr><tr><td>Stack</td><td>RAM</td><td>Local variables, return addresses, saved registers; grows downward on ARM</td></tr></table></div>
+<h3 id="what-happens-from-reset-to-main">What happens from reset to main</h3>
+<ul>
+<li>The CPU loads the initial stack pointer from the first word of the vector table and jumps to the reset handler (the second word).</li>
+<li><strong>Reset_Handler</strong> (startup code) copies <code>.data</code> from Flash to RAM, zeroes <code>.bss</code>, calls <code>SystemInit()</code> (clock and basic setup), runs C library or C++ static initializers, then calls <code>main()</code>.</li>
+<li>If <code>main()</code> returns, the startup code usually enters an infinite loop. Embedded <code>main()</code> normally never returns.</li>
+</ul>
+<h3 id="linker-script">Linker script</h3>
+<ul>
+<li>Defines memory regions (<code>FLASH</code>, <code>RAM</code> with origin and length) and places sections into them. Exports symbols such as <code>_sdata</code>, <code>_edata</code>, <code>_sbss</code>, <code>_ebss</code>, <code>_estack</code> used by startup code.</li>
+<li>The <strong>map file</strong> shows the size and address of every symbol; use it to find what consumes Flash or RAM.</li>
+</ul>
+<h3 id="stack-and-heap-in-embedded">Stack and heap in embedded</h3>
+<ul>
+<li>Stack size is fixed by you. Overflow silently corrupts other memory or triggers a fault. Detect with stack painting (fill with a pattern and check the high-water mark), an MPU guard region, or RTOS stack checks.</li>
+<li>Avoid recursion and large local arrays. Estimate worst-case stack depth including ISRs.</li>
+<li><strong>Avoid </strong><strong><code>malloc</code></strong><strong>/</strong><strong><code>free</code></strong> in long-running firmware: fragmentation, non-deterministic timing, and allocation failure at runtime. Prefer static allocation or fixed-size memory pools. If allowed, allocate once at startup.</li>
+<li>Flash writes: a bit can only be changed from 1 to 0 by programming; erasing (usually a whole page or sector) sets bits back to 1. Flash has a limited number of erase cycles, so use wear levelling for frequently changing data.</li>
+</ul>
+<h2 id="7-interrupts">7. Interrupts</h2>
+<p>An interrupt is a hardware signal that makes the CPU pause the current code, run an Interrupt Service Routine (ISR), and then resume. It lets the system react to events without polling.</p>
+<ul>
+<li><strong>Vector table:</strong> an array of addresses of handlers, one per exception or interrupt source. The CPU fetches the handler address from it.</li>
+<li><strong>Priority:</strong> each interrupt has a priority. On Cortex-M, a lower number means higher priority. A higher-priority interrupt can preempt a lower one (nesting).</li>
+<li><strong>Latency:</strong> time from the event to the first ISR instruction. It is affected by the current instruction, interrupts being masked, higher-priority ISRs, and the context save (Cortex-M hardware stacks 8 registers automatically).</li>
+</ul>
+<h3 id="isr-rules">ISR rules</h3>
+<ul>
+<li>Keep ISRs short and fast: do the minimum (read data, clear the flag, set a variable or push to a queue) and do the rest in the main loop or a task.</li>
+<li>Do not call blocking functions, delays, <code>printf</code>, <code>malloc</code>, or non-reentrant library functions inside an ISR.</li>
+<li>Variables shared with the main code must be <code>volatile</code> and accessed atomically (protect with a critical section if larger than the native word size or modified in several steps).</li>
+<li>Always clear the peripheral interrupt flag, or the ISR will fire again immediately.</li>
+<li>ISRs take no arguments and return nothing; they cannot be called like normal functions.</li>
+<li>Keep ISR stack usage low, since interrupts use the same stack (or the main stack on Cortex-M).</li>
+</ul>
+<h3 id="critical-sections">Critical sections</h3>
+<pre><code>/* Cortex-M example using CMSIS */
+uint32_t primask = __get_PRIMASK();
+__disable_irq();
+/* ... touch shared data ... */
+__set_PRIMASK(primask);        /* restore previous state, do not blindly enable */</code></pre>
+<ul>
+<li>Keep critical sections as short as possible; long ones increase latency and can miss events.</li>
+</ul>
+<h3 id="polling-vs-interrupt-vs-dma">Polling vs interrupt vs DMA</h3>
+<div class="tw"><table><tr><th><strong>Method</strong></th><th><strong>Pros</strong></th><th><strong>Cons</strong></th></tr><tr><td>Polling</td><td>Simple, deterministic, no ISR complexity</td><td>Wastes CPU, may miss short events</td></tr><tr><td>Interrupt</td><td>Reacts quickly, CPU free for other work</td><td>Latency jitter, shared-data bugs, overhead per event</td></tr><tr><td>DMA</td><td>Moves blocks without CPU, high throughput</td><td>Setup complexity, buffer ownership and cache issues</td></tr></table></div>
+<h2 id="8-peripherals-gpio-timers-adc-dma-watchdog">8. Peripherals (GPIO, Timers, ADC, DMA, Watchdog)</h2>
+<h3 id="gpio-and-switch-debouncing">GPIO and switch debouncing</h3>
+<ul>
+<li>Mechanical switches bounce for roughly 5 to 20 ms, producing multiple edges. Fix in hardware with an RC filter, or in software by requiring a stable reading for several samples or a fixed time.</li>
+</ul>
+<h3 id="timers">Timers</h3>
+<ul>
+<li>A timer counts clock ticks. Frequency after the prescaler is f_timer = f_clk / (PSC + 1). Overflow/update period = (PSC + 1) x (ARR + 1) / f_clk.</li>
+<li>Modes: basic periodic interrupt, input capture (measure pulse width or frequency), output compare, PWM, one-pulse, encoder mode.</li>
+<li><strong>PWM:</strong> a fixed-frequency square wave whose duty cycle (percent high) controls average power, for example LED brightness or motor speed. Duty = CCR / (ARR + 1).</li>
+<li><strong>SysTick</strong> (Cortex-M): a 24-bit down-counter used for the system tick (commonly 1 ms) and RTOS scheduling.</li>
+</ul>
+<h3 id="adc">ADC</h3>
+<ul>
+<li>Converts an analog voltage to a digital number. Resolution is the number of bits (10-bit gives 1024 levels, 12-bit gives 4096).</li>
+<li>Digital value = Vin / Vref x (2^N - 1). LSB size = Vref / 2^N. Example: 12-bit with 3.3 V gives about 0.8 mV per step.</li>
+<li>Sampling rate must be at least twice the highest signal frequency (Nyquist). Add an anti-aliasing filter. Source impedance and sampling time affect accuracy. Averaging several samples reduces noise.</li>
+</ul>
+<h3 id="dma">DMA</h3>
+<ul>
+<li>The DMA controller copies data between memory and peripherals (or memory to memory) without CPU involvement and raises an interrupt when done. Typical uses: ADC buffers, UART/SPI bulk transfers, display frame buffers. Use circular mode for continuous streams.</li>
+</ul>
+<h3 id="watchdog-timer">Watchdog timer</h3>
+<ul>
+<li>A counter that resets the MCU if the firmware fails to refresh (&quot;kick&quot;) it within a timeout. It recovers from hangs and infinite loops. Kick it only from a place that proves the system is healthy, not from a timer ISR that keeps running while the main loop is stuck. A window watchdog also faults if kicked too early.</li>
+</ul>
+<h3 id="low-power-modes">Low-power modes</h3>
+<ul>
+<li>Sleep, stop, standby (names vary). The CPU waits with <code>WFI</code> (wait for interrupt) or <code>WFE</code>. Wake sources: interrupts, RTC, external pin. Reduce power by lowering clock frequency, gating unused peripheral clocks, and sleeping between events.</li>
+</ul>
+<h2 id="9-communication-protocols">9. Communication Protocols</h2>
+<h3 id="uart-serial">UART (serial)</h3>
+<ul>
+<li>Asynchronous, two wires (TX, RX) plus ground, no shared clock. Both sides must agree on baud rate, data bits (usually 8), parity, and stop bits. The common setting is 8N1 (8 data bits, no parity, 1 stop bit).</li>
+<li>Idle line is high; a frame starts with a start bit (low), then data (LSB first), optional parity, and stop bit(s) (high).</li>
+<li>Point to point. TTL-level UART is not the same as RS-232 (higher voltages) or RS-485 (differential, multi-drop, long distance).</li>
+<li>Receive with interrupts or DMA and a ring buffer to avoid losing bytes.</li>
+</ul>
+<h3 id="spi">SPI</h3>
+<ul>
+<li>Synchronous, full duplex, four wires: SCK (clock), MOSI, MISO, and CS/SS (chip select, one per slave). The master generates the clock. No addressing: select a slave with its CS line.</li>
+<li>Four modes from clock polarity (CPOL: idle level) and clock phase (CPHA: which edge samples data). Master and slave must use the same mode.</li>
+<li>Fast (several MHz to tens of MHz), simple hardware, but more pins and no built-in acknowledgment.</li>
+</ul>
+<h3 id="i2c">I2C</h3>
+<ul>
+<li>Two wires: SDA (data) and SCL (clock), both open-drain with external pull-up resistors (commonly 2.2 to 10 kOhm). Multiple masters and slaves on one bus; each slave has a 7-bit (or 10-bit) address.</li>
+<li>Transfer: START, address plus R/W bit, ACK from the slave, data bytes each followed by ACK/NACK, then STOP. Speeds: 100 kHz standard, 400 kHz fast, 1 MHz fast-plus.</li>
+<li>Common problems: missing or wrong pull-ups, address confusion (7-bit address vs shifted 8-bit form), a slave holding SDA low (bus stuck; clock out nine pulses to recover), clock stretching.</li>
+</ul>
+<h3 id="can">CAN</h3>
+<ul>
+<li>Two-wire differential bus (CAN_H, CAN_L) with 120 Ohm termination at both ends. Multi-master, message-based: frames carry an identifier, not a destination address. Lower identifier wins arbitration without data loss. Built-in CRC, acknowledgment, and error handling. Used in automotive and industrial systems (up to 1 Mbps classic CAN, higher with CAN FD).</li>
+</ul>
+<h3 id="others">Others</h3>
+<ul>
+<li>USB, Ethernet, Bluetooth LE, Wi-Fi, LIN, Modbus, 1-Wire. Knowing what each is used for is usually enough for interviews.</li>
+</ul>
+<h2 id="10-timing-and-scheduling-approaches">10. Timing and Scheduling Approaches</h2>
+<ul>
+<li><strong>Blocking delay loops</strong> waste CPU and are inaccurate. Prefer a hardware timer.</li>
+<li><strong>Non-blocking timing</strong> with a free-running tick counter:</li>
+</ul>
+<pre><code>static uint32_t last = 0;
+if ((uint32_t)(millis() - last) &gt;= 500U) {   /* safe across counter wrap-around */
+    last = millis();
+    toggle_led();
+}</code></pre>
+<ul>
+<li><strong>Super-loop (foreground/background):</strong> main loop runs tasks in order; ISRs handle urgent events. Simple, but one slow task delays all others.</li>
+<li><strong>Time-triggered / cooperative scheduler:</strong> a timer tick sets flags; the main loop runs tasks whose period has elapsed.</li>
+<li><strong>Finite state machine (FSM):</strong> model behavior as states and transitions; ideal for protocols, UI, and control logic. Implement with a <code>switch</code> on an enum or a table of function pointers.</li>
+<li><strong>RTOS:</strong> preemptive priority-based scheduling for hard deadlines and complex concurrency.</li>
+</ul>
+<h2 id="11-rtos-concepts">11. RTOS Concepts</h2>
+<ul>
+<li><strong>Task (thread):</strong> an independent function with its own stack and priority. <strong>Task states:</strong> running, ready, blocked (waiting on delay/queue/semaphore), suspended.</li>
+<li><strong>Scheduler:</strong> chooses which ready task runs. Preemptive: a higher-priority task interrupts a lower one immediately. Cooperative: tasks yield voluntarily. Round robin shares CPU among equal-priority tasks via time slices.</li>
+<li><strong>Context switch:</strong> save the current task registers, load the next one. On Cortex-M it is done in the PendSV exception, with SysTick driving the tick.</li>
+<li><strong>Semaphore:</strong> a signaling counter. Binary semaphore signals an event (often ISR to task). Counting semaphore tracks resources or events.</li>
+<li><strong>Mutex:</strong> protects a shared resource; has an owner and only the owner unlocks it. Supports priority inheritance in most RTOSes.</li>
+<li><strong>Queue:</strong> thread-safe FIFO to pass data between tasks and from ISRs to tasks. <strong>Event flags/groups:</strong> wait on bit patterns. <strong>Software timers:</strong> callbacks driven by the tick.</li>
+<li><strong>Race condition:</strong> the result depends on the order in which tasks/ISRs access shared data. Fix with mutexes, critical sections, or message passing.</li>
+<li><strong>Deadlock:</strong> tasks wait on each other forever. It needs mutual exclusion, hold and wait, no preemption, and circular wait. Prevent by acquiring locks in a fixed order or using timeouts.</li>
+<li><strong>Priority inversion:</strong> a high-priority task is blocked by a low-priority task holding a mutex, while a medium-priority task preempts the low one. Solved by priority inheritance (the holder temporarily gets the blocked task priority) or priority ceiling.</li>
+<li><strong>Starvation:</strong> a low-priority task never runs because higher ones always do.</li>
+<li><strong>Reentrant function:</strong> safe if interrupted and called again, because it uses only local variables or protected shared state. Required for functions used by multiple tasks or ISRs.</li>
+<li><strong>Mutex vs binary semaphore:</strong> a mutex is for mutual exclusion with ownership and priority inheritance; a binary semaphore is for signaling between contexts, with no owner.</li>
+<li>Never use a mutex in an ISR; use ISR-safe APIs such as <code>xSemaphoreGiveFromISR</code> and <code>xQueueSendFromISR</code> in FreeRTOS.</li>
+</ul>
+<h2 id="12-arm-cortex-m-essentials">12. ARM Cortex-M Essentials</h2>
+<ul>
+<li>Registers: R0 to R12 (general), R13 (SP: MSP main stack pointer and PSP process stack pointer), R14 (LR link register), R15 (PC), and xPSR (status). Cortex-M executes Thumb/Thumb-2 instructions only.</li>
+<li><strong>Exception entry:</strong> hardware automatically pushes R0 to R3, R12, LR, PC, xPSR onto the stack, loads the handler address from the vector table, and sets LR to a special EXC_RETURN value. A return from the handler restores the context.</li>
+<li><strong>NVIC:</strong> the interrupt controller; handles enable/disable, pending, and priority for each interrupt.</li>
+<li><strong>Core exceptions:</strong> Reset, NMI, HardFault, MemManage, BusFault, UsageFault, SVCall, PendSV, SysTick.</li>
+<li><strong>HardFault causes:</strong> invalid memory access (null or wild pointer), unaligned access on cores that do not support it, executing an invalid instruction, calling a function through a bad pointer, stack overflow, divide by zero if trapping is enabled.</li>
+<li><strong>Variants:</strong> M0/M0+ (smallest, lowest power), M3, M4 (adds DSP and optional FPU), M7 (high performance), M23/M33 (TrustZone security).</li>
+<li><strong>MPU:</strong> memory protection unit; defines regions with access rights to catch stack overflows and isolate tasks.</li>
+<li><strong>Bit-banding</strong> (M3/M4): alias addresses allow atomic access to single bits in some memory regions.</li>
+</ul>
+<h2 id="13-coding-practices-misra-defensive-coding">13. Coding Practices (MISRA, Defensive Coding)</h2>
+<ul>
+<li><strong>MISRA C</strong> is a safety and reliability coding standard widely used in automotive, medical and industrial software. Typical guidance: no dynamic memory allocation, no recursion, always use braces for if/else/loops, avoid implicit type conversions, initialize all variables, one statement per line, no unreachable code, and use fixed-width types.</li>
+<li>Use named constants and enums, not magic numbers. Use <code>static</code> for file-private items. Keep functions small and single-purpose.</li>
+<li>Check inputs and return codes; use <code>assert</code> (compiled out in release or routed to a safe handler) for invariants.</li>
+<li>Fail safe: define what the device does on error (safe state, reset, error code), not just in the normal path.</li>
+<li>Avoid global variables where possible; where needed, document who reads and writes them, especially across ISR and main.</li>
+<li>Compile with warnings on (<code>-Wall -Wextra</code>) and use static analysis (cppcheck, clang-tidy, commercial MISRA checkers).</li>
+<li>Version firmware, and store a version and CRC so the device can verify its own image.</li>
+</ul>
+<h2 id="14-optimization-for-small-devices">14. Optimization for Small Devices</h2>
+<ul>
+<li>Choose appropriate types: use the smallest type that fits, but do not use types narrower than the native word in tight loops (it can add extra instructions).</li>
+<li>Prefer integer and fixed-point arithmetic. A Q15 or Q31 number is an integer interpreted as value / 2^15 (or 2^31); multiply then shift right.</li>
+<li>Replace division and modulo by powers of two with shifts and masks. Avoid division in hot code on cores without a hardware divider.</li>
+<li>Use lookup tables in Flash for expensive functions (sine, CRC) when Flash is plentiful.</li>
+<li>Compiler options: <code>-Os</code> for size, <code>-O2</code> for speed. Enable <code>-ffunction-sections -fdata-sections</code> with linker <code>--gc-sections</code> to drop unused code.</li>
+<li>Loop counting down to zero is slightly cheaper on some cores. Avoid passing large structs by value; pass pointers.</li>
+<li>Use <code>static inline</code> for tiny functions. Measure first; verify with the map file and a profiler or cycle counter (<code>DWT-&gt;CYCCNT</code> on Cortex-M3 and above).</li>
+<li>Keep strings and tables in Flash; avoid <code>printf</code> with floating point on small MCUs (large code and stack use). Use a light formatting routine.</li>
+</ul>
+<h2 id="15-bootloaders-and-firmware-updates">15. Bootloaders and Firmware Updates</h2>
+<ul>
+<li>A <strong>bootloader</strong> is a small program at the start of Flash that runs first, checks whether an update is requested or the application is valid (CRC or signature), and then jumps to the application.</li>
+<li>To jump to the application: read its initial stack pointer and reset vector from the application vector table, set the vector table offset (<code>SCB-&gt;VTOR</code>), set MSP, and branch to the reset handler.</li>
+<li>The application is linked at a different Flash origin (after the bootloader), so the linker script must match.</li>
+<li>Update channels: UART, USB, CAN, SPI/I2C, over-the-air (OTA) via Wi-Fi or Bluetooth. Safer designs keep two application slots (A/B) and roll back if the new image fails to boot.</li>
+<li>Protect updates with CRC for integrity and cryptographic signatures for authenticity.</li>
+</ul>
+<h2 id="16-debugging">16. Debugging</h2>
+<ul>
+<li><strong>JTAG/SWD</strong> with an on-chip debugger (ST-Link, J-Link) gives breakpoints, single-step, register and memory view, and flash programming. SWD uses two pins.</li>
+<li><strong>printf debugging</strong> over UART or semihosting/ITM (SWO) is useful but changes timing.</li>
+<li><strong>Logic analyzer</strong> decodes UART, SPI, I2C and shows timing; an <strong>oscilloscope</strong> shows signal quality (voltage levels, ringing, edges).</li>
+<li><strong>HardFault debugging:</strong> inspect the stacked PC and LR from the fault handler to find the instruction that caused the fault; check the fault status registers (CFSR, HFSR, BFAR, MMFAR).</li>
+<li>Use GPIO toggling plus a scope to measure ISR duration and latency.</li>
+<li>Typical bug sources: missing <code>volatile</code>, uninitialized variables, stack overflow, race between ISR and main, wrong clock setup, incorrect register bit positions, I2C pull-ups, and misunderstood timing.</li>
+</ul>
+<h2 id="17-interview-questions-with-answers">17. Interview Questions with Answers</h2>
+<p><strong>What is an embedded system? </strong>A dedicated computing system built into a larger device, performing specific functions with constraints on memory, power, cost, and timing.</p>
+<p><strong>MCU vs MPU? </strong>An MCU integrates CPU, memory and peripherals on one chip and usually runs bare metal or an RTOS. An MPU needs external memory and peripherals and typically runs a full OS such as Linux.</p>
+<p><strong>Why is volatile important in embedded C? </strong>It prevents the compiler from optimizing away or reordering accesses to values that change outside program flow: hardware registers, ISR-shared variables.</p>
+<p><strong>Can a variable be both const and volatile? </strong>Yes. <code>const volatile</code> means your code cannot write it but hardware can change it, such as a read-only status register.</p>
+<p><strong>Can a pointer be volatile? </strong>Yes: <code>int *volatile p</code> means the pointer value can change unexpectedly; <code>volatile int *p</code> means the pointed-to data can.</p>
+<p><strong>Is volatile enough for thread safety? </strong>No. It only controls compiler optimization. Use critical sections, mutexes, or atomic operations for multi-step or multi-word access.</p>
+<p><strong>What is an ISR and what are its rules? </strong>A function the hardware calls on an interrupt. Keep it short, no blocking calls, clear the flag, use volatile for shared data, avoid non-reentrant and heavy library calls.</p>
+<p><strong>Can an ISR return a value or take parameters? </strong>No. It is called by hardware, not by your code.</p>
+<p><strong>What is interrupt latency? </strong>The time between the interrupt request and the start of the ISR. It depends on masked interrupts, higher-priority ISRs, the current instruction, and context save.</p>
+<p><strong>What is a vector table? </strong>A table of handler addresses indexed by exception number; the CPU reads it to find the ISR.</p>
+<p><strong>What is the difference between polling and interrupts? </strong>Polling repeatedly checks status in software; interrupts let hardware notify the CPU when an event occurs.</p>
+<p><strong>What is DMA? </strong>Hardware that transfers data between peripherals and memory without CPU involvement.</p>
+<p><strong>What is a watchdog timer? </strong>A timer that resets the system if software does not refresh it in time, recovering from hangs.</p>
+<p><strong>Where do local, global, static and const variables live? </strong>Locals on the stack; initialized globals/statics in .data; uninitialized in .bss; const data in Flash (.rodata); dynamic data on the heap.</p>
+<p><strong>What is the difference between .data and .bss? </strong>.data holds explicitly initialized variables and needs an initial image in Flash copied to RAM at startup; .bss holds zero-initialized ones and is simply cleared.</p>
+<p><strong>What happens when the microcontroller resets? </strong>The CPU loads SP and the reset vector, runs the startup code to copy .data, zero .bss and set up clocks, and then calls main.</p>
+<p><strong>Why avoid malloc in embedded systems? </strong>Fragmentation, non-deterministic execution time, possible allocation failure, and extra code and RAM. Use static allocation or memory pools.</p>
+<p><strong>What is stack overflow and how do you detect it? </strong>The stack grows into other memory. Detect with stack painting, MPU guard regions, RTOS checks, or fault handlers.</p>
+<p><strong>How do you set, clear, toggle, and test a bit? </strong>Set: <code>reg |= (1U &lt;&lt; n)</code>. Clear: <code>reg &amp;= ~(1U &lt;&lt; n)</code>. Toggle: <code>reg ^= (1U &lt;&lt; n)</code>. Test: <code>(reg &gt;&gt; n) &amp; 1U</code>.</p>
+<p><strong>How do you check endianness? </strong><code>uint16_t x = 1; *(uint8_t *)&amp;x == 1</code> means little endian.</p>
+<p><strong>What is struct padding and how do you avoid wasted space? </strong>Padding aligns members. Order members from largest to smallest, or use packed (accepting unaligned access cost).</p>
+<p><strong>UART vs SPI vs I2C? </strong>UART: async, 2 wires, point to point. SPI: sync, 4 wires, fast, full duplex, chip select per slave. I2C: sync, 2 wires, addressable multi-device, slower, needs pull-ups.</p>
+<p><strong>Why does I2C need pull-up resistors? </strong>Its lines are open-drain; devices can only pull the line low, so resistors create the high level.</p>
+<p><strong>What are SPI modes? </strong>Four combinations of CPOL (idle clock level) and CPHA (sampling edge); master and slave must match.</p>
+<p><strong>What is baud rate? </strong>Symbols per second on a serial line; for UART, roughly bits per second including start and stop bits.</p>
+<p><strong>How does CAN arbitration work? </strong>Nodes transmit identifiers bit by bit; a dominant (0) bit overrides recessive (1), so the lowest identifier wins without corrupting data.</p>
+<p><strong>What is debouncing? </strong>Filtering the multiple transitions of a mechanical switch, in hardware (RC) or software (time or sample counting).</p>
+<p><strong>What is PWM and its uses? </strong>A fixed-frequency signal with adjustable duty cycle to control average power: LED dimming, motor speed, DAC approximation.</p>
+<p><strong>Mutex vs semaphore? </strong>A mutex is owned and used for mutual exclusion (with priority inheritance); a semaphore is a signaling or counting mechanism with no owner.</p>
+<p><strong>What is priority inversion? </strong>A high-priority task waits on a resource held by a low-priority task that is preempted by a medium-priority one. Fix with priority inheritance or ceiling.</p>
+<p><strong>What is a deadlock and how can you avoid it? </strong>Tasks waiting on each other forever. Avoid with consistent lock ordering, timeouts, and minimal locking.</p>
+<p><strong>What is a race condition? </strong>Behavior depends on the timing of concurrent accesses. Protect shared data with critical sections or mutexes.</p>
+<p><strong>What is a reentrant function? </strong>It can be safely interrupted and called again; it uses no static or global state unless protected.</p>
+<p><strong>What is a context switch? </strong>Saving the running task state and restoring another task state so it can run.</p>
+<p><strong>Super-loop vs RTOS? </strong>A super-loop is simple and deterministic for small systems; an RTOS gives scheduling, priorities, and synchronization for complex or time-critical systems at the cost of memory and overhead.</p>
+<p><strong>What is a bootloader? </strong>A small program that starts first, validates and loads or updates the application, then jumps to it.</p>
+<p><strong>Why use fixed-width integer types? </strong>Plain int size varies across compilers and architectures; fixed-width types make code portable and register-accurate.</p>
+<p><strong>What is the purpose of a linker script? </strong>To define memory regions and place code and data sections at the right addresses for the target.</p>
+<p><strong>What causes a HardFault on Cortex-M? </strong>Invalid memory or peripheral access, unaligned access on cores that forbid it, undefined instructions, bad function pointers, stack corruption, and divide by zero if enabled.</p>
+<p><strong>How do you reduce power consumption? </strong>Lower clock speed, sleep modes (WFI), turn off unused peripherals, wake on interrupts, and reduce active time.</p>
+<p><strong>What is the difference between a compiler and a cross-compiler? </strong>A cross-compiler runs on a host machine (PC) but produces code for a different target architecture such as ARM Cortex-M.</p>
+<p><strong>What is the difference between Flash and EEPROM? </strong>Flash erases in blocks and is used for code; EEPROM allows byte-level erase/write and is used for small persistent data. Both have limited write endurance.</p>
+<h2 id="18-coding-problems-with-solutions">18. Coding Problems with Solutions</h2>
+<h3 id="1-set-clear-toggle-and-check-a-bit">1. Set, clear, toggle and check a bit</h3>
+<pre><code>reg |=  (1U &lt;&lt; n);     /* set    */
+reg &amp;= ~(1U &lt;&lt; n);     /* clear  */
+reg ^=  (1U &lt;&lt; n);     /* toggle */
+if (reg &amp; (1U &lt;&lt; n)) { /* test   */ }</code></pre>
+<h3 id="2-count-set-bits">2. Count set bits</h3>
+<pre><code>uint8_t count_bits(uint32_t x) {
+    uint8_t c = 0;
+    while (x) { x &amp;= x - 1U; c++; }
+    return c;
+}</code></pre>
+<h3 id="3-reverse-the-bits-of-a-byte">3. Reverse the bits of a byte</h3>
+<pre><code>uint8_t reverse_bits(uint8_t b) {
+    b = (uint8_t)(((b &amp; 0xF0U) &gt;&gt; 4) | ((b &amp; 0x0FU) &lt;&lt; 4));
+    b = (uint8_t)(((b &amp; 0xCCU) &gt;&gt; 2) | ((b &amp; 0x33U) &lt;&lt; 2));
+    b = (uint8_t)(((b &amp; 0xAAU) &gt;&gt; 1) | ((b &amp; 0x55U) &lt;&lt; 1));
+    return b;
+}</code></pre>
+<h3 id="4-swap-nibbles-and-swap-endianness">4. Swap nibbles and swap endianness</h3>
+<pre><code>uint8_t swap_nibbles(uint8_t b) { return (uint8_t)((b &lt;&lt; 4) | (b &gt;&gt; 4)); }</code></pre>
+<pre><code>uint32_t swap32(uint32_t x) {
+    return ((x &amp; 0x000000FFUL) &lt;&lt; 24) |
+           ((x &amp; 0x0000FF00UL) &lt;&lt;  8) |
+           ((x &amp; 0x00FF0000UL) &gt;&gt;  8) |
+           ((x &amp; 0xFF000000UL) &gt;&gt; 24);
+}</code></pre>
+<h3 id="5-check-endianness">5. Check endianness</h3>
+<pre><code>int is_little_endian(void) {
+    uint16_t x = 1;
+    return *(uint8_t *)&amp;x == 1;
+}</code></pre>
+<h3 id="6-check-if-a-number-is-a-power-of-two">6. Check if a number is a power of two</h3>
+<pre><code>int is_pow2(uint32_t x) { return x &amp;&amp; !(x &amp; (x - 1U)); }</code></pre>
+<h3 id="7-circular-ring-buffer">7. Circular (ring) buffer</h3>
+<pre><code>#define BUF_SIZE 64U               /* power of two makes wrap cheap */</code></pre>
+<pre><code>typedef struct {
+    uint8_t buf[BUF_SIZE];
+    volatile uint16_t head;        /* written by producer (ISR)   */
+    volatile uint16_t tail;        /* written by consumer (main)  */
+} RingBuf;</code></pre>
+<pre><code>int rb_put(RingBuf *rb, uint8_t v) {
+    uint16_t next = (uint16_t)((rb-&gt;head + 1U) &amp; (BUF_SIZE - 1U));
+    if (next == rb-&gt;tail) return -1;       /* full */
+    rb-&gt;buf[rb-&gt;head] = v;
+    rb-&gt;head = next;
+    return 0;
+}</code></pre>
+<pre><code>int rb_get(RingBuf *rb, uint8_t *v) {
+    if (rb-&gt;head == rb-&gt;tail) return -1;   /* empty */
+    *v = rb-&gt;buf[rb-&gt;tail];
+    rb-&gt;tail = (uint16_t)((rb-&gt;tail + 1U) &amp; (BUF_SIZE - 1U));
+    return 0;
+}</code></pre>
+<p>With a single producer (ISR) and a single consumer (main), this works without locks because each index is written by only one side. One slot is kept empty to distinguish full from empty.</p>
+<h3 id="8-switch-debounce-sample-counting">8. Switch debounce (sample counting)</h3>
+<pre><code>/* call every 1 ms */
+#define DEBOUNCE_MS 20U
+bool debounced_state = false;</code></pre>
+<pre><code>void debounce_tick(bool raw) {
+    static uint8_t count = 0;
+    if (raw == debounced_state) { count = 0; return; }
+    if (++count &gt;= DEBOUNCE_MS) { debounced_state = raw; count = 0; }
+}</code></pre>
+<h3 id="9-finite-state-machine">9. Finite state machine</h3>
+<pre><code>typedef enum { ST_IDLE, ST_RUNNING, ST_ERROR } State;</code></pre>
+<pre><code>State step(State s, bool start, bool stop, bool fault) {
+    switch (s) {
+    case ST_IDLE:    return start ? ST_RUNNING : ST_IDLE;
+    case ST_RUNNING: if (fault) return ST_ERROR;
+                     return stop ? ST_IDLE : ST_RUNNING;
+    case ST_ERROR:   return stop ? ST_IDLE : ST_ERROR;   /* stop acts as reset */
+    default:         return ST_ERROR;
+    }
+}</code></pre>
+<h3 id="10-memcpy-and-memset">10. memcpy and memset</h3>
+<pre><code>void *my_memcpy(void *dst, const void *src, size_t n) {
+    uint8_t *d = dst; const uint8_t *s = src;
+    while (n--) *d++ = *s++;
+    return dst;
+}</code></pre>
+<pre><code>void *my_memset(void *p, int v, size_t n) {
+    uint8_t *d = p;
+    while (n--) *d++ = (uint8_t)v;
+    return p;
+}</code></pre>
+<h3 id="11-crc-8-polynomial-0x07">11. CRC-8 (polynomial 0x07)</h3>
+<pre><code>uint8_t crc8(const uint8_t *data, size_t len) {
+    uint8_t crc = 0x00;
+    while (len--) {
+        crc ^= *data++;
+        for (uint8_t i = 0; i &lt; 8; i++)
+            crc = (crc &amp; 0x80U) ? (uint8_t)((crc &lt;&lt; 1) ^ 0x07U) : (uint8_t)(crc &lt;&lt; 1);
+    }
+    return crc;
+}</code></pre>
+<h3 id="12-fixed-point-q15-multiply">12. Fixed-point (Q15) multiply</h3>
+<pre><code>typedef int16_t q15_t;             /* value = raw / 32768 */</code></pre>
+<pre><code>q15_t q15_mul(q15_t a, q15_t b) {
+    int32_t p = (int32_t)a * (int32_t)b;   /* Q30 */
+    return (q15_t)(p &gt;&gt; 15);               /* back to Q15 */
+}</code></pre>
+<h3 id="13-led-toggle-with-button-using-registers-concept">13. LED toggle with button using registers (concept)</h3>
+<pre><code>int main(void) {
+    clock_enable_gpioa();                  /* 1. enable peripheral clock    */
+    GPIOA-&gt;MODER |= (1UL &lt;&lt; (5 * 2));      /* 2. PA5 output (LED)           */
+    /* PA0 stays input with pull-down configured in PUPDR */</code></pre>
+<pre><code>    for (;;) {
+        if (GPIOA-&gt;IDR &amp; (1UL &lt;&lt; 0)) {     /* 3. button pressed?            */
+            GPIOA-&gt;ODR ^= (1UL &lt;&lt; 5);      /* 4. toggle LED                 */
+            delay_ms(200);                 /*    crude debounce             */
+        }
+    }
+}</code></pre>
+<h3 id="14-interrupt-flag-pattern-isr-sets-flag-main-handles-it">14. Interrupt flag pattern (ISR sets flag, main handles it)</h3>
+<pre><code>static volatile bool rx_flag = false;
+static volatile uint8_t rx_byte;</code></pre>
+<pre><code>void USART1_IRQHandler(void) {
+    if (USART1-&gt;ISR &amp; USART_ISR_RXNE) {
+        rx_byte = (uint8_t)USART1-&gt;RDR;    /* reading RDR clears RXNE */
+        rx_flag = true;
+    }
+}</code></pre>
+<pre><code>int main(void) {
+    for (;;) {
+        if (rx_flag) {
+            rx_flag = false;
+            process(rx_byte);
+        }
+    }
+}</code></pre>
+<h3 id="15-other-problems-to-practice">15. Other problems to practice</h3>
+<ul>
+<li>Find the missing number in an array of N-1 distinct numbers (XOR or sum)</li>
+<li>Detect a cycle in a linked list (Floyd)</li>
+<li>Reverse a linked list</li>
+<li>Implement atoi and itoa</li>
+<li>Implement strlen, strcpy, strcmp</li>
+<li>Extract bit-field values from a packed 32-bit word</li>
+<li>Compute the average of ADC samples without overflow</li>
+<li>Implement a software timer with callbacks</li>
+<li>Parse a UART command frame with start byte, length, payload and CRC</li>
+<li>Implement a fixed-size memory pool (alloc and free of equal blocks)</li>
+</ul>
+<h2 id="19-study-tips-and-resources">19. Study Tips and Resources</h2>
+<ul>
+<li>Pick one board (STM32 Nucleo, Arduino Uno/Nano, ESP32, or TI LaunchPad) and make every concept run on real hardware: blink LED, button with interrupt, UART echo, timer PWM, ADC read, I2C sensor, SPI display.</li>
+<li>Read the reference manual and datasheet for your MCU; learn to find a register description and its reset value.</li>
+<li>Write drivers using registers first (no HAL) for GPIO, UART and a timer, so you understand what libraries do.</li>
+<li>Learn FreeRTOS basics: tasks, queues, semaphores, mutexes, and run a producer-consumer example.</li>
+<li>Use a logic analyzer or an inexpensive USB analyzer to look at UART, SPI and I2C signals.</li>
+<li>Study the Cortex-M startup file and linker script of your project line by line.</li>
+<li><strong>Books:</strong> Making Embedded Systems (Elecia White); Embedded Systems Architecture (Daniele Lacamera); The Definitive Guide to ARM Cortex-M3 and Cortex-M4 Processors (Joseph Yiu); Mastering the FreeRTOS Real Time Kernel (free from the FreeRTOS site); Embedded C Coding Standard (Barr Group); MISRA C guidelines.</li>
+<li><strong>Courses and sites:</strong> Embedded Systems Shape the World (UT Austin, edX), FastBit Embedded Academy, Interrupt blog by Memfault, Beningo Embedded Group, and ST/NXP/TI application notes.</li>
+</ul>
+<h1 id="part-b-embedded-c-cheat-sheet">Part B: Embedded C Cheat Sheet</h1>
+<p>A compact reference to revise just before an interview.</p>
+<h2 id="b1-fixed-width-types">B1. Fixed-Width Types</h2>
+<div class="tw"><table><tr><th><strong>Type</strong></th><th><strong>Size</strong></th><th><strong>Range / Use</strong></th></tr><tr><td><code>uint8_t</code> / <code>int8_t</code></td><td>1 byte</td><td>0 to 255 / -128 to 127; bytes, small counters, flags</td></tr><tr><td><code>uint16_t</code> / <code>int16_t</code></td><td>2 bytes</td><td>0 to 65535 / -32768 to 32767; ADC values, timer counts</td></tr><tr><td><code>uint32_t</code> / <code>int32_t</code></td><td>4 bytes</td><td>0 to 4,294,967,295 / about ±2.1 billion; registers, ticks</td></tr><tr><td><code>uint64_t</code> / <code>int64_t</code></td><td>8 bytes</td><td>Large counters, timestamps (slow on 8/16-bit MCUs)</td></tr><tr><td><code>size_t</code></td><td>Pointer-sized</td><td>Sizes and array indexes</td></tr><tr><td><code>uintptr_t</code></td><td>Pointer-sized</td><td>Integer that can hold a pointer</td></tr><tr><td><code>bool</code></td><td>1 byte</td><td>From <code>&lt;stdbool.h&gt;</code>; true/false</td></tr><tr><td><code>float</code> / <code>double</code></td><td>4 / 8 bytes</td><td>Avoid on MCUs without an FPU</td></tr></table></div>
+<p>Suffixes: <code>U</code> unsigned, <code>UL</code> unsigned long, <code>ULL</code> unsigned long long. Hex literals <code>0x1F</code>, binary literals <code>0b1010</code> (compiler extension in older C).</p>
+<h2 id="b2-register-and-bit-macros">B2. Register and Bit Macros</h2>
+<pre><code>#define BIT(n)             (1UL &lt;&lt; (n))
+#define SET_BIT(r, n)      ((r) |=  BIT(n))
+#define CLR_BIT(r, n)      ((r) &amp;= ~BIT(n))
+#define TOG_BIT(r, n)      ((r) ^=  BIT(n))
+#define GET_BIT(r, n)      (((r) &gt;&gt; (n)) &amp; 1UL)
+#define MASK(w)            ((1UL &lt;&lt; (w)) - 1UL)
+#define GET_FIELD(r,p,w)   (((r) &gt;&gt; (p)) &amp; MASK(w))
+#define SET_FIELD(r,p,w,v) ((r) = ((r) &amp; ~(MASK(w) &lt;&lt; (p))) | (((v) &amp; MASK(w)) &lt;&lt; (p)))</code></pre>
+<pre><code>#define REG32(addr)        (*(volatile uint32_t *)(addr))
+#define ARRAY_SIZE(a)      (sizeof(a) / sizeof((a)[0]))
+#define UNUSED(x)          ((void)(x))</code></pre>
+<div class="tw"><table><tr><th><strong>Operation</strong></th><th><strong>Pattern</strong></th></tr><tr><td>Set bit n</td><td><code>reg |= (1U &lt;&lt; n)</code></td></tr><tr><td>Clear bit n</td><td><code>reg &amp;= ~(1U &lt;&lt; n)</code></td></tr><tr><td>Toggle bit n</td><td><code>reg ^= (1U &lt;&lt; n)</code></td></tr><tr><td>Test bit n</td><td><code>if (reg &amp; (1U &lt;&lt; n))</code></td></tr><tr><td>Set several bits</td><td><code>reg |= (A | B)</code></td></tr><tr><td>Clear several bits</td><td><code>reg &amp;= ~(A | B)</code></td></tr><tr><td>Write a field</td><td><code>reg = (reg &amp; ~MASK) | (val &lt;&lt; POS)</code></td></tr><tr><td>Check power of two</td><td><code>x &amp;&amp; !(x &amp; (x - 1))</code></td></tr><tr><td>Lowest set bit</td><td><code>x &amp; -x</code></td></tr><tr><td>Align up to 4</td><td><code>(x + 3U) &amp; ~3U</code></td></tr><tr><td>Multiply / divide by 2^k</td><td><code>x &lt;&lt; k</code> / <code>x &gt;&gt; k</code> (unsigned)</td></tr></table></div>
+<h2 id="b3-volatile-const-static-combinations">B3. volatile / const / static Combinations</h2>
+<div class="tw"><table><tr><th><strong>Declaration</strong></th><th><strong>Meaning / typical use</strong></th></tr><tr><td><code>volatile uint32_t x</code></td><td>Value may change outside code flow; ISR-shared variable</td></tr><tr><td><code>volatile uint32_t *p</code></td><td>Pointer to volatile data; peripheral register pointer</td></tr><tr><td><code>uint32_t *volatile p</code></td><td>Pointer itself is volatile (rare)</td></tr><tr><td><code>const volatile uint32_t *p</code></td><td>Read-only hardware register such as a status register</td></tr><tr><td><code>const uint8_t table[]</code></td><td>Lookup table stored in Flash</td></tr><tr><td><code>static uint8_t count</code> (in function)</td><td>Persists between calls; not on stack</td></tr><tr><td><code>static void helper(void)</code></td><td>File-private function</td></tr><tr><td><code>extern volatile uint8_t flag</code></td><td>Flag defined in another file and shared with an ISR</td></tr></table></div>
+<h2 id="b4-memory-sections">B4. Memory Sections</h2>
+<div class="tw"><table><tr><th><strong>Section</strong></th><th><strong>Memory</strong></th><th><strong>Holds</strong></th></tr><tr><td><code>.text</code></td><td>Flash</td><td>Code, vector table</td></tr><tr><td><code>.rodata</code></td><td>Flash</td><td><code>const</code> data, strings, tables</td></tr><tr><td><code>.data</code></td><td>Flash to RAM</td><td>Initialized globals and statics (copied at startup)</td></tr><tr><td><code>.bss</code></td><td>RAM</td><td>Zero-initialized globals and statics (cleared at startup)</td></tr><tr><td>Heap</td><td>RAM</td><td><code>malloc</code> region; avoid in firmware</td></tr><tr><td>Stack</td><td>RAM</td><td>Locals, return addresses, context; grows down</td></tr></table></div>
+<p>Startup sequence: reset, load SP and reset vector, copy .data, zero .bss, SystemInit (clocks), init libc, main.</p>
+<h2 id="b5-interrupt-rules">B5. Interrupt Rules</h2>
+<div class="tw"><table><tr><th><strong>Do</strong></th><th><strong>Do not</strong></th></tr><tr><td>Keep the ISR short</td><td>Block, delay, or wait in an ISR</td></tr><tr><td>Clear the interrupt flag</td><td>Call <code>printf</code>, <code>malloc</code>, or non-reentrant functions</td></tr><tr><td>Use <code>volatile</code> for shared variables</td><td>Assume volatile makes multi-byte access atomic</td></tr><tr><td>Protect shared data with critical sections</td><td>Leave interrupts disabled for long</td></tr><tr><td>Save and restore PRIMASK state</td><td>Blindly re-enable interrupts after a critical section</td></tr><tr><td>Defer work to main loop or task (flag, queue)</td><td>Do heavy processing in the ISR</td></tr><tr><td>Use FromISR RTOS APIs inside ISRs</td><td>Use mutexes in ISRs</td></tr><tr><td>Set priorities deliberately</td><td>Leave all interrupts at the same priority by accident</td></tr></table></div>
+<h2 id="b6-protocol-comparison">B6. Protocol Comparison</h2>
+<div class="tw"><table><tr><th></th><th><strong>UART</strong></th><th><strong>SPI</strong></th><th><strong>I2C</strong></th><th><strong>CAN</strong></th></tr><tr><td>Clock</td><td>Asynchronous</td><td>Synchronous</td><td>Synchronous</td><td>Asynchronous (bit timing)</td></tr><tr><td>Wires</td><td>TX, RX (+GND)</td><td>SCK, MOSI, MISO, CS per slave</td><td>SDA, SCL (+pull-ups)</td><td>CAN_H, CAN_L (differential)</td></tr><tr><td>Topology</td><td>Point to point</td><td>One master, many slaves</td><td>Multi-master, multi-slave</td><td>Multi-master bus</td></tr><tr><td>Addressing</td><td>None</td><td>CS line</td><td>7/10-bit address</td><td>Message identifier</td></tr><tr><td>Duplex</td><td>Full</td><td>Full</td><td>Half</td><td>Half</td></tr><tr><td>Typical speed</td><td>9.6k to 1M baud</td><td>Up to tens of MHz</td><td>100k, 400k, 1 MHz</td><td>Up to 1 Mbps (CAN FD faster)</td></tr><tr><td>Ack / error</td><td>Parity optional</td><td>None</td><td>ACK/NACK per byte</td><td>ACK, CRC, error frames</td></tr><tr><td>Common use</td><td>Debug console, GPS, modules</td><td>Flash, displays, ADCs, SD card</td><td>Sensors, EEPROM, RTC</td><td>Automotive, industrial</td></tr></table></div>
+<p>SPI modes: mode 0 (CPOL 0, CPHA 0), mode 1 (0, 1), mode 2 (1, 0), mode 3 (1, 1). UART 8N1 frame: 1 start + 8 data + 1 stop = 10 bits per byte.</p>
+<h2 id="b7-formulas">B7. Formulas</h2>
+<div class="tw"><table><tr><th><strong>Quantity</strong></th><th><strong>Formula</strong></th></tr><tr><td>Timer frequency</td><td><code>f_timer = f_clk / (PSC + 1)</code></td></tr><tr><td>Timer period</td><td><code>T = (PSC + 1) x (ARR + 1) / f_clk</code></td></tr><tr><td>PWM duty cycle</td><td><code>duty = CCR / (ARR + 1)</code></td></tr><tr><td>PWM frequency</td><td><code>f_pwm = f_clk / ((PSC + 1) x (ARR + 1))</code></td></tr><tr><td>ADC code</td><td><code>code = Vin / Vref x (2^N - 1)</code></td></tr><tr><td>ADC voltage</td><td><code>Vin = code x Vref / (2^N - 1)</code> (or / 2^N, check the datasheet)</td></tr><tr><td>ADC step (LSB)</td><td><code>Vref / 2^N</code> (12-bit, 3.3 V: about 0.806 mV)</td></tr><tr><td>UART bytes per second</td><td><code>baud / 10</code> for 8N1</td></tr><tr><td>UART baud register</td><td><code>BRR = f_clk / baud</code> (16x oversampling)</td></tr><tr><td>Nyquist</td><td><code>f_sample &gt;= 2 x f_max</code></td></tr><tr><td>Q15 value</td><td><code>real = raw / 32768</code></td></tr></table></div>
+<h2 id="b8-rtos-primitives">B8. RTOS Primitives</h2>
+<div class="tw"><table><tr><th><strong>Primitive</strong></th><th><strong>Purpose</strong></th><th><strong>Notes</strong></th></tr><tr><td>Task</td><td>Independent thread of execution</td><td>Own stack and priority</td></tr><tr><td>Queue</td><td>Pass data between tasks/ISRs</td><td>Thread-safe FIFO</td></tr><tr><td>Binary semaphore</td><td>Signal an event</td><td>No owner; ISR to task signaling</td></tr><tr><td>Counting semaphore</td><td>Count events or resources</td><td>Resource pools</td></tr><tr><td>Mutex</td><td>Mutual exclusion on shared resource</td><td>Has owner; priority inheritance</td></tr><tr><td>Event group</td><td>Wait on bit patterns</td><td>Synchronize several conditions</td></tr><tr><td>Software timer</td><td>Timed callbacks</td><td>Driven by the tick</td></tr><tr><td>Critical section</td><td>Short interrupt-disabled region</td><td>Keep it very short</td></tr></table></div>
+<p>Problems: race condition (unsynchronized shared access), deadlock (circular waiting), priority inversion (fix with inheritance), starvation (low priority never runs).</p>
+<h2 id="b9-cortex-m-quick-reference">B9. Cortex-M Quick Reference</h2>
+<div class="tw"><table><tr><th><strong>Item</strong></th><th><strong>Detail</strong></th></tr><tr><td>Registers</td><td>R0-R12 general; R13 SP (MSP/PSP); R14 LR; R15 PC; xPSR status</td></tr><tr><td>Auto-stacked on exception</td><td>R0-R3, R12, LR, PC, xPSR (8 words)</td></tr><tr><td>Vector table</td><td>Word 0: initial SP; word 1: reset handler; then exceptions and IRQs</td></tr><tr><td>Priority</td><td>Lower number = higher priority</td></tr><tr><td>Core exceptions</td><td>Reset, NMI, HardFault, MemManage, BusFault, UsageFault, SVCall, PendSV, SysTick</td></tr><tr><td>Context switch</td><td>PendSV (lowest priority); tick from SysTick</td></tr><tr><td>Sleep instructions</td><td><code>WFI</code> wait for interrupt; <code>WFE</code> wait for event</td></tr><tr><td>Interrupt mask</td><td><code>__disable_irq()</code> / <code>__enable_irq()</code>; PRIMASK register</td></tr><tr><td>Vector table offset</td><td><code>SCB-&gt;VTOR</code></td></tr><tr><td>Cycle counter</td><td><code>DWT-&gt;CYCCNT</code> (M3 and above)</td></tr><tr><td>Fault registers</td><td>CFSR, HFSR, MMFAR, BFAR</td></tr></table></div>
+<h2 id="b10-ready-to-use-snippets">B10. Ready-to-Use Snippets</h2>
+<h3 id="non-blocking-delay">Non-blocking delay</h3>
+<pre><code>static uint32_t t0;
+if ((uint32_t)(millis() - t0) &gt;= PERIOD_MS) {
+    t0 += PERIOD_MS;
+    do_task();
+}</code></pre>
+<h3 id="critical-section-macro-cortex-m">Critical section macro (Cortex-M)</h3>
+<pre><code>#define ENTER_CRITICAL()  uint32_t _pm = __get_PRIMASK(); __disable_irq()
+#define EXIT_CRITICAL()   __set_PRIMASK(_pm)</code></pre>
+<h3 id="function-pointer-table-command-dispatcher">Function pointer table (command dispatcher)</h3>
+<pre><code>typedef void (*cmd_fn)(const char *args);
+typedef struct { const char *name; cmd_fn fn; } Cmd;</code></pre>
+<pre><code>static const Cmd cmds[] = {
+    { &quot;led&quot;, cmd_led },
+    { &quot;adc&quot;, cmd_adc },
+};</code></pre>
+<pre><code>for (size_t i = 0; i &lt; ARRAY_SIZE(cmds); i++)
+    if (strcmp(name, cmds[i].name) == 0) { cmds[i].fn(args); break; }</code></pre>
+<h3 id="ring-buffer-index-wrap-size-is-a-power-of-two">Ring buffer index wrap (size is a power of two)</h3>
+<pre><code>head = (head + 1U) &amp; (SIZE - 1U);</code></pre>
+<h3 id="safe-millisecond-tick-comparison-handles-wrap-around">Safe millisecond tick comparison (handles wrap-around)</h3>
+<pre><code>if ((int32_t)(now - deadline) &gt;= 0) { /* deadline reached */ }</code></pre>
+<h3 id="read-a-16-bit-big-endian-value-from-a-byte-buffer">Read a 16-bit big-endian value from a byte buffer</h3>
+<pre><code>uint16_t v = (uint16_t)((buf[0] &lt;&lt; 8) | buf[1]);</code></pre>
+<h3 id="safe-jump-to-application-bootloader">Safe jump to application (bootloader)</h3>
+<pre><code>typedef void (*app_fn)(void);
+uint32_t sp  = *(volatile uint32_t *)APP_ADDR;
+uint32_t rst = *(volatile uint32_t *)(APP_ADDR + 4U);
+__disable_irq();
+SCB-&gt;VTOR = APP_ADDR;
+__set_MSP(sp);
+((app_fn)rst)();</code></pre>
+<h2 id="b11-common-bugs">B11. Common Bugs</h2>
+<div class="tw"><table><tr><th><strong>Symptom / mistake</strong></th><th><strong>Likely cause and fix</strong></th></tr><tr><td>Loop waiting for a flag never ends</td><td>Missing <code>volatile</code> on the shared variable</td></tr><tr><td>Peripheral does nothing</td><td>Peripheral clock not enabled, wrong pin mode or alternate function</td></tr><tr><td>Interrupt fires repeatedly</td><td>Flag not cleared in the ISR</td></tr><tr><td>Interrupt never fires</td><td>Not enabled in NVIC or peripheral, wrong vector name, priority masked</td></tr><tr><td>Random crashes or HardFault</td><td>Stack overflow, null/wild pointer, unaligned access, corrupted function pointer</td></tr><tr><td>Variable has garbage after reset</td><td>Uninitialized local; startup did not copy .data or zero .bss</td></tr><tr><td>Lost updates on a register or variable</td><td>Read-modify-write racing with an ISR; use critical section or atomic set/clear registers</td></tr><tr><td>I2C device not responding</td><td>Missing pull-ups, wrong 7-bit vs 8-bit address, bus stuck low</td></tr><tr><td>UART shows garbage</td><td>Baud rate mismatch, wrong clock configuration, wrong frame format</td></tr><tr><td>SPI reads wrong data</td><td>Wrong mode (CPOL/CPHA), clock too fast, CS handling</td></tr><tr><td>ADC readings noisy</td><td>No filtering, short sampling time, noisy reference, floating input</td></tr><tr><td>Delay is wrong or code behaves differently with optimization</td><td>Busy-wait loop optimized away; use a timer or volatile</td></tr><tr><td>Watchdog resets unexpectedly</td><td>Long blocking operation, kick placed in ISR hiding hangs, timeout too short</td></tr><tr><td>Counter jumps near wrap-around</td><td>Compare with subtraction (<code>now - start</code>) in unsigned arithmetic</td></tr><tr><td>Struct sent over a protocol is corrupted</td><td>Padding and endianness differences; serialize fields explicitly</td></tr></table></div>
+<h2 id="b12-last-minute-checklist">B12. Last-Minute Checklist</h2>
+<ul>
+<li>Can I explain volatile with three real examples and say what it does not guarantee?</li>
+<li>Can I write set, clear, toggle, test and field-write macros from memory?</li>
+<li>Can I describe memory sections and what startup code does before main?</li>
+<li>Can I list ISR rules and write a safe ISR-to-main handoff?</li>
+<li>Can I explain race conditions and how a critical section protects shared data?</li>
+<li>Can I compare UART, SPI, I2C and CAN (wires, speed, addressing, use)?</li>
+<li>Can I calculate timer period, PWM duty and ADC resolution?</li>
+<li>Do I know mutex vs semaphore, priority inversion, and deadlock conditions?</li>
+<li>Can I implement a ring buffer, debounce, CRC and bit reversal?</li>
+<li>Can I explain Cortex-M exception entry and what causes a HardFault?</li>
+<li>Do I know why malloc is avoided and what to use instead?</li>
+<li>Can I describe a bootloader and how it jumps to the application?</li>
+<li>Have I run LED, UART, timer interrupt, ADC and I2C code on real hardware at least once?</li>
+</ul>

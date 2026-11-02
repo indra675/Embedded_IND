@@ -1,0 +1,407 @@
+<p><strong>C Programming</strong></p>
+<p>Detailed Learning Guide and Interview Cheat Sheet</p>
+<p><em>Concepts, code examples, interview questions with answers, and a quick-reference cheat sheet</em></p>
+<h2 id="contents">Contents</h2>
+<p><strong>Part A: Detailed Guide</strong></p>
+<ul>
+<li>1. How C Works</li>
+<li>2. Data Types and Operators</li>
+<li>3. Control Flow</li>
+<li>4. Functions</li>
+<li>5. Arrays and Strings</li>
+<li>6. Pointers</li>
+<li>7. Dynamic Memory</li>
+<li>8. Structs, Unions, Enums, typedef</li>
+<li>9. Storage Classes and Qualifiers</li>
+<li>10. Preprocessor</li>
+<li>11. File I/O</li>
+<li>12. Bitwise Operations</li>
+<li>13. Function Pointers and Callbacks</li>
+<li>14. Undefined Behavior</li>
+<li>15. Data Structures to Implement</li>
+<li>16. Interview Questions with Answers</li>
+<li>17. Classic Coding Problems</li>
+<li>18. Debugging and Tooling</li>
+<li>19. How to Study Effectively</li>
+</ul>
+<p><strong>Part B: Interview Cheat Sheet</strong></p>
+<ul>
+<li>B1. Data Types and Format Specifiers</li>
+<li>B2. Operator Precedence</li>
+<li>B3. Reading Declarations</li>
+<li>B4. Storage Classes and Qualifiers at a Glance</li>
+<li>B5. Standard Library Quick Reference</li>
+<li>B6. Bit Manipulation Tricks</li>
+<li>B7. Must-Know Code Snippets</li>
+<li>B8. Top Gotchas and Undefined Behavior</li>
+<li>B9. Last-Minute Interview Checklist</li>
+</ul>
+<h1 id="part-a-detailed-guide">Part A: Detailed Guide</h1>
+<h2 id="1-how-c-works">1. How C Works</h2>
+<p>C is a compiled, procedural, low-level language. Source code goes through four stages: preprocessing (<code>#include</code>, <code>#define</code>), compilation (to assembly), assembly (to an object file), and linking (to an executable).</p>
+<pre><code>#include &lt;stdio.h&gt;</code></pre>
+<pre><code>int main(void) {
+    printf(&quot;Hello, C\n&quot;);
+    return 0;
+}</code></pre>
+<p>Compile with <code>gcc -Wall -Wextra -g main.c -o main</code>. Always turn warnings on and take them seriously.</p>
+<h2 id="2-data-types-and-operators">2. Data Types and Operators</h2>
+<ul>
+<li>Integers: <code>char</code>, <code>short</code>, <code>int</code>, <code>long</code>, <code>long long</code>, each <code>signed</code> or <code>unsigned</code>. Use <code>&lt;stdint.h&gt;</code> (<code>int32_t</code>, <code>uint8_t</code>) when exact size matters.</li>
+<li>Floating point: <code>float</code>, <code>double</code>. Never compare with <code>==</code>; compare with a small tolerance.</li>
+<li>Sizes are implementation-defined. Typical 64-bit: char 1, short 2, int 4, long 8 (Linux/macOS), float 4, double 8, pointer 8. Use <code>sizeof</code>.</li>
+<li>Integer promotion: <code>char</code> and <code>short</code> are promoted to <code>int</code> in expressions. Mixing signed and unsigned converts the signed value to unsigned, a classic bug (<code>-1 &lt; 1u</code> is false).</li>
+<li>Signed overflow is undefined behavior. Unsigned overflow wraps around.</li>
+<li>Integer division truncates toward zero. <code>%</code> takes the sign of the left operand.</li>
+<li><code>&amp;&amp;</code> and <code>||</code> short-circuit. Mixing up <code>=</code> and <code>==</code> is a frequent mistake.</li>
+<li>Precedence trap: <code>a &amp; b == c</code> parses as <code>a &amp; (b == c)</code>. Use parentheses.</li>
+</ul>
+<h2 id="3-control-flow">3. Control Flow</h2>
+<p><code>if/else</code>, <code>switch</code> (needs <code>break</code> or it falls through; case labels must be integer constants), <code>for</code>, <code>while</code>, <code>do-while</code>, <code>break</code>, <code>continue</code>, and <code>goto</code> (rare, mostly for cleanup in error paths).</p>
+<h2 id="4-functions">4. Functions</h2>
+<ul>
+<li>C is always pass by value. To modify the caller&#x27;s variable, pass a pointer.</li>
+<li>Declare prototypes in headers; define functions in .c files.</li>
+<li>Arrays decay to pointers when passed, so also pass the length.</li>
+<li>Recursion uses the stack; each call has a stack frame. Very deep recursion causes stack overflow.</li>
+<li>Use <code>int main(void)</code> or <code>int main(int argc, char *argv[])</code>. Never <code>void main()</code>.</li>
+<li>Variadic functions (like <code>printf</code>) use <code>&lt;stdarg.h&gt;</code>: <code>va_list</code>, <code>va_start</code>, <code>va_arg</code>, <code>va_end</code>.</li>
+</ul>
+<h2 id="5-arrays-and-strings">5. Arrays and Strings</h2>
+<pre><code>int a[5] = {1, 2, 3};      // remaining elements are zero
+int b[] = {1, 2, 3, 4};    // size deduced as 4
+char s1[] = &quot;hello&quot;;       // modifiable copy, 6 bytes
+char *s2 = &quot;hello&quot;;        // points to read-only literal</code></pre>
+<ul>
+<li>A string is a <code>char</code> array ending with <code>&#x27;\0&#x27;</code>.</li>
+<li><code>sizeof(arr)</code> gives total bytes only where <code>arr</code> is a real array, not a function parameter.</li>
+<li>Out-of-bounds access is undefined behavior; C does no bounds checking.</li>
+<li>Key functions: <code>strlen</code>, <code>strcmp</code>, <code>strcpy</code>, <code>strncpy</code>, <code>strcat</code>, <code>strstr</code>, <code>strchr</code>, <code>memcpy</code>, <code>memmove</code>, <code>memset</code>. Use <code>memmove</code> if regions overlap.</li>
+<li><code>strncpy</code> does not always null-terminate. Prefer <code>snprintf</code> for safe formatting.</li>
+<li>Never use <code>gets()</code>. Use <code>fgets()</code>.</li>
+<li>2D arrays are stored row-major: <code>int m[3][4]</code> is 12 contiguous ints.</li>
+</ul>
+<h2 id="6-pointers-the-heart-of-c">6. Pointers (the Heart of C)</h2>
+<p>A pointer stores a memory address.</p>
+<pre><code>int x = 10;
+int *p = &amp;x;     // p holds the address of x
+*p = 20;         // x is now 20
+int **pp = &amp;p;   // pointer to pointer</code></pre>
+<p><strong>Key rules</strong></p>
+<ul>
+<li>Pointer arithmetic scales by element size: <code>p + 1</code> advances by <code>sizeof(*p)</code> bytes.</li>
+<li><code>a[i]</code> is exactly <code>*(a + i)</code>.</li>
+<li>An array name is not a pointer, but it decays to one in most expressions (exceptions: <code>sizeof</code> and <code>&amp;</code>).</li>
+<li><code>void *</code> is a generic pointer; you cannot dereference it or do arithmetic on it directly.</li>
+<li>Dereferencing <code>NULL</code> crashes (segmentation fault). Always check the return of <code>malloc</code> and <code>fopen</code>.</li>
+<li>Pointer subtraction gives the element count between two pointers (type <code>ptrdiff_t</code>).</li>
+</ul>
+<p><strong>const with pointers</strong> (read right to left)</p>
+<ul>
+<li><code>const int *p</code>: value is read-only, pointer can move.</li>
+<li><code>int *const p</code>: pointer is fixed, value can change.</li>
+<li><code>const int *const p</code>: both fixed.</li>
+</ul>
+<p><strong>Pointer expressions interviewers love</strong></p>
+<ul>
+<li><code>*p++</code>: use the value, then increment the pointer.</li>
+<li><code>(*p)++</code>: increment the value.</li>
+<li><code>*++p</code>: increment the pointer, then use the value.</li>
+<li><code>++*p</code>: increment the value, then use it.</li>
+</ul>
+<p>Pointer to array vs array of pointers: <code>int (*p)[5]</code> is a pointer to an array of 5 ints; <code>int *p[5]</code> is an array of 5 int pointers.</p>
+<h2 id="7-dynamic-memory">7. Dynamic Memory</h2>
+<pre><code>int *p = malloc(n * sizeof *p);
+if (p == NULL) { /* handle failure */ }</code></pre>
+<pre><code>int *q = realloc(p, 2 * n * sizeof *p);
+if (q == NULL) { free(p); /* handle failure */ }
+else p = q;</code></pre>
+<pre><code>free(p);
+p = NULL;</code></pre>
+<ul>
+<li><code>malloc</code> returns uninitialized memory. <code>calloc(n, size)</code> zero-initializes.</li>
+<li><code>realloc</code> may move the block, so assign its result to a temporary first.</li>
+<li>Every <code>malloc</code> needs exactly one <code>free</code>.</li>
+<li>Memory bugs: leak (never freed), dangling pointer (use after free), double free, buffer overflow, uninitialized read, wild pointer (never initialized).</li>
+<li>Never return a pointer to a local variable; it lives on the stack and dies when the function returns.</li>
+<li>Stack: automatic, fast, limited size, holds locals. Heap: manual, larger, slower, persists until freed. Also: data segment (initialized globals), BSS (uninitialized globals, zeroed), text segment (code).</li>
+</ul>
+<h2 id="8-structs-unions-enums-typedef">8. Structs, Unions, Enums, typedef</h2>
+<pre><code>typedef struct {
+    int id;
+    char name[32];
+} Student;</code></pre>
+<pre><code>Student s = { .id = 1, .name = &quot;Asha&quot; };
+Student *ps = &amp;s;
+ps-&gt;id = 2;          // same as (*ps).id</code></pre>
+<ul>
+<li>Structs are copied by value on assignment and when passed to functions.</li>
+<li>Padding: the compiler inserts bytes so members align. <code>sizeof</code> a struct can exceed the sum of its members. Order members from largest to smallest to reduce size. Use <code>offsetof</code> to inspect.</li>
+<li>A union shares one memory block among its members; its size equals the largest member. Reading a member other than the one last written reinterprets the bytes: allowed in C, but the result is machine dependent and may be a trap value.</li>
+<li><code>enum</code> constants are integers starting at 0.</li>
+<li>Bit-fields (<code>unsigned flag : 1;</code>) pack bits, but their layout is implementation-defined.</li>
+<li>Flexible array member: <code>struct { int n; int data[]; }</code> allocated with <code>malloc(sizeof(struct) + n * sizeof(int))</code>.</li>
+</ul>
+<h2 id="9-storage-classes-and-qualifiers">9. Storage Classes and Qualifiers</h2>
+<ul>
+<li><code>auto</code>: default for locals.</li>
+<li><code>static</code> local: initialized once, keeps its value across calls, lives in the data segment.</li>
+<li><code>static</code> global or function: visible only inside that file (internal linkage).</li>
+<li><code>extern</code>: declares a variable or function defined in another file.</li>
+<li><code>register</code>: a hint, mostly ignored; you cannot take its address.</li>
+<li><code>const</code>: read-only. In C, a <code>const</code> variable is not a compile-time constant.</li>
+<li><code>volatile</code>: the value may change unexpectedly (hardware registers, interrupt handlers), so the compiler must not optimize reads away. It does not give thread safety.</li>
+<li><code>restrict</code>: a promise that a pointer is the only access to that memory, enabling optimizations.</li>
+<li><code>inline</code>: a suggestion to inline a function.</li>
+</ul>
+<h2 id="10-preprocessor">10. Preprocessor</h2>
+<pre><code>#define PI 3.14159
+#define SQUARE(x) ((x) * (x))
+#define MAX(a, b) ((a) &gt; (b) ? (a) : (b))</code></pre>
+<pre><code>#ifndef MYHEADER_H
+#define MYHEADER_H
+/* declarations */
+#endif</code></pre>
+<ul>
+<li>Macros are text substitution with no type checking. <code>SQUARE(i++)</code> evaluates <code>i++</code> twice (bug). Always parenthesize arguments and the whole body.</li>
+<li><code>#</code> stringifies an argument; <code>##</code> pastes tokens.</li>
+<li>Include guards (or <code>#pragma once</code>) prevent double inclusion.</li>
+<li><code>#include &lt;file&gt;</code> searches system paths; <code>#include &quot;file&quot;</code> searches the local directory first.</li>
+<li>Conditional compilation: <code>#if</code>, <code>#ifdef</code>, <code>#else</code>, <code>#endif</code>. Predefined: <code>__FILE__</code>, <code>__LINE__</code>, <code>__func__</code>.</li>
+<li>Prefer <code>const</code> and <code>enum</code> over macros for constants, and <code>static inline</code> over function-like macros.</li>
+</ul>
+<h2 id="11-file-i-o">11. File I/O</h2>
+<pre><code>FILE *f = fopen(&quot;data.txt&quot;, &quot;r&quot;);
+if (!f) { perror(&quot;fopen&quot;); return 1; }
+char line[256];
+while (fgets(line, sizeof line, f)) {
+    printf(&quot;%s&quot;, line);
+}
+fclose(f);</code></pre>
+<ul>
+<li>Modes: <code>r</code>, <code>w</code> (truncates), <code>a</code> (append), <code>r+</code>, <code>w+</code>, <code>a+</code>; add <code>b</code> for binary.</li>
+<li>Functions: <code>fprintf</code>, <code>fscanf</code>, <code>fgets</code>, <code>fputs</code>, <code>fread</code>, <code>fwrite</code>, <code>fseek</code>, <code>ftell</code>, <code>rewind</code>, <code>feof</code>, <code>fflush</code>.</li>
+<li>Do not loop on <code>while (!feof(f))</code>; check the return value of the read instead.</li>
+<li><code>stdin</code>, <code>stdout</code>, <code>stderr</code> are always open. <code>stdout</code> is buffered; <code>stderr</code> is not.</li>
+<li><code>scanf</code> returns the number of items read; always check it. <code>%s</code> without a width can overflow, so use <code>%31s</code>.</li>
+</ul>
+<h2 id="12-bitwise-operations">12. Bitwise Operations</h2>
+<pre><code>x &amp; (1u &lt;&lt; n)       // test bit n
+x |= (1u &lt;&lt; n);     // set bit n
+x &amp;= ~(1u &lt;&lt; n);    // clear bit n
+x ^= (1u &lt;&lt; n);     // toggle bit n
+x &amp; (x - 1)         // clear lowest set bit
+x &amp; -x              // isolate lowest set bit
+(x &amp; (x - 1)) == 0  // power of two (x &gt; 0)</code></pre>
+<ul>
+<li>Count set bits: loop with <code>x &amp;= x - 1</code> (Brian Kernighan&#x27;s method).</li>
+<li>Right shift of negative signed values is implementation-defined; shifting by the width or more is undefined.</li>
+<li>Swap without a temp: <code>a ^= b; b ^= a; a ^= b;</code> (fails if both refer to the same variable).</li>
+<li>Endianness check: <code>int n = 1; *(char *)&amp;n == 1</code> means little endian.</li>
+</ul>
+<h2 id="13-function-pointers-and-callbacks">13. Function Pointers and Callbacks</h2>
+<pre><code>int add(int a, int b) { return a + b; }
+int (*op)(int, int) = add;
+int r = op(2, 3);</code></pre>
+<pre><code>qsort(arr, n, sizeof arr[0], cmp);   // cmp is a callback</code></pre>
+<p>Uses: callbacks, dispatch tables, simple polymorphism, plugin-style design.</p>
+<h2 id="14-undefined-behavior">14. Undefined Behavior</h2>
+<ul>
+<li><strong>Undefined:</strong> out-of-bounds access, null dereference, signed overflow, use after free, modifying a string literal, unsequenced modification (<code>i = i++ + ++i</code>), reading uninitialized variables, using the value of a non-void function that lacks a return.</li>
+<li><strong>Unspecified:</strong> order of evaluation of function arguments.</li>
+<li><strong>Implementation-defined:</strong> size of int, signedness of plain char, struct padding.</li>
+<li>With undefined behavior anything can happen, including appearing to work.</li>
+</ul>
+<h2 id="15-data-structures-to-implement">15. Data Structures to Implement</h2>
+<p>Do each of these at least once, with full memory management:</p>
+<ul>
+<li>Dynamic array (vector) with resize</li>
+<li>Singly and doubly linked list (insert, delete, reverse, find middle, detect cycle)</li>
+<li>Stack and queue (array and linked-list versions)</li>
+<li>Circular buffer</li>
+<li>Hash table with chaining</li>
+<li>Binary search tree (insert, search, delete, traversals)</li>
+<li>Min-heap / priority queue</li>
+<li>String library: <code>strlen</code>, <code>strcpy</code>, <code>strcmp</code>, <code>strstr</code>, <code>atoi</code>, <code>itoa</code>, <code>memcpy</code>, <code>memmove</code></li>
+</ul>
+<h2 id="16-interview-questions-with-answers">16. Interview Questions with Answers</h2>
+<p><strong>Difference between malloc and calloc? </strong><code>calloc</code> takes count and size and zeroes the memory; <code>malloc</code> takes total bytes and leaves it uninitialized.</p>
+<p><strong>What is a dangling pointer? </strong>A pointer to memory that has been freed or gone out of scope. Fix: set it to <code>NULL</code> after <code>free</code>; never return addresses of locals.</p>
+<p><strong>What is a memory leak? </strong>Heap memory that was allocated but never freed and is no longer reachable.</p>
+<p><strong>Stack vs heap? </strong>Stack is automatic, fast, small, with LIFO frames. Heap is manual, flexible, larger, and can fragment.</p>
+<p><strong>What does static do? </strong>Local: persists between calls. Global or function: limits visibility to the file.</p>
+<p><strong>const vs #define? </strong><code>const</code> has a type and scope and shows in the debugger; <code>#define</code> is untyped text replacement.</p>
+<p><strong>Array vs pointer? </strong>An array is a block of storage; a pointer is a variable holding an address. Arrays decay to pointers, but <code>sizeof</code> and <code>&amp;</code> treat them differently.</p>
+<p><strong>Why is a write to a string literal a bug? </strong><code>char *s = &quot;abc&quot;; s[0] = &#x27;x&#x27;;</code> modifies a string literal, which is undefined behavior. Use <code>char s[] = &quot;abc&quot;;</code> instead.</p>
+<p><strong>What is void pointer? </strong>A generic pointer; it must be cast before dereferencing. <code>malloc</code> returns it.</p>
+<p><strong>struct vs union? </strong>Struct members have separate storage; union members overlap in the same memory.</p>
+<p><strong>What is a segmentation fault? </strong>Access to memory the process may not touch: null or wild pointers, stack overflow, writing read-only memory.</p>
+<p><strong>What is volatile for? </strong>It stops the compiler from caching or optimizing away reads of a variable that can change outside normal program flow.</p>
+<p><strong>i++ vs ++i? </strong>Both increment; the value of the expression differs (old value vs new value).</p>
+<p><strong>Common macro pitfalls? </strong>Double evaluation of arguments and missing parentheses.</p>
+<p><strong>When is sizeof evaluated? </strong>At compile time (except for variable-length arrays).</p>
+<p><strong>How do you avoid buffer overflow? </strong>Check lengths, use <code>fgets</code>, <code>snprintf</code>, and <code>strncpy</code> with explicit termination, and validate all input sizes.</p>
+<p><strong>What is memory alignment? </strong>Hardware prefers data at addresses that are multiples of its size; compilers pad structs for this.</p>
+<p><strong>What if you free the same pointer twice? </strong>Undefined behavior; usually heap corruption or a crash.</p>
+<p><strong>memcpy vs memmove? </strong><code>memmove</code> handles overlapping regions correctly; <code>memcpy</code> does not.</p>
+<p><strong>What is a reentrant function? </strong>One that is safe to call again before a previous call finishes (no static or global state). Required for interrupt handlers and threads.</p>
+<p><strong>What is the difference between a macro and an inline function? </strong>A macro is expanded by the preprocessor with no type checking; an inline function is type-checked and evaluates its arguments once.</p>
+<p><strong>What is a null pointer vs an uninitialized pointer? </strong>A null pointer deliberately points to nothing and can be tested. An uninitialized pointer holds a garbage address and cannot be tested safely.</p>
+<p><strong>What are the different memory segments of a C program? </strong>Text (code), initialized data, BSS (zero-initialized data), heap, and stack.</p>
+<p><strong>What does extern do? </strong>It declares that a variable or function is defined in another translation unit, without allocating storage.</p>
+<h2 id="17-classic-coding-problems">17. Classic Coding Problems</h2>
+<ul>
+<li>Reverse a string in place; check for palindrome</li>
+<li>Reverse a linked list (iterative and recursive); find the middle; detect and remove a loop (Floyd)</li>
+<li>Merge two sorted lists</li>
+<li>Find the missing number; find duplicates</li>
+<li>Count set bits; reverse bits; check power of two</li>
+<li>Swap two variables without a temp</li>
+<li>Implement atoi and itoa with edge cases (sign, overflow, whitespace)</li>
+<li>Binary search; bubble, insertion, quick and merge sort</li>
+<li>Fibonacci and factorial (recursive and iterative)</li>
+<li>Matrix transpose and rotate</li>
+<li>Implement memcpy and handle overlap in memmove</li>
+<li>Check endianness</li>
+<li>Remove duplicates from a sorted array</li>
+<li>Balanced parentheses using a stack</li>
+<li>Implement a circular queue or simple LRU cache</li>
+</ul>
+<h2 id="18-debugging-and-tooling">18. Debugging and Tooling</h2>
+<ul>
+<li><code>gcc -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined</code> catches most memory and undefined-behavior bugs early.</li>
+<li><code>valgrind ./prog</code> finds leaks and invalid reads and writes.</li>
+<li><code>gdb ./prog</code>: <code>break</code>, <code>run</code>, <code>next</code>, <code>step</code>, <code>print</code>, <code>backtrace</code>, <code>watch</code>.</li>
+<li><code>make</code> for builds; <code>clang-format</code> and <code>cppcheck</code> for style and static checks.</li>
+</ul>
+<h2 id="19-how-to-study-effectively">19. How to Study Effectively</h2>
+<ul>
+<li>Type every example yourself; do not just read.</li>
+<li>Draw memory diagrams (stack, heap, pointer arrows) for every pointer problem.</li>
+<li>After each topic, write a small program that uses it, then deliberately break it and read the error.</li>
+<li>Solve 2 to 3 problems a day on HackerRank or LeetCode in C only.</li>
+<li>Explain concepts aloud as if answering an interviewer.</li>
+<li>Read good code: the Linux kernel list implementation, SQLite, or Redis source.</li>
+</ul>
+<p><strong>Recommended books:</strong> The C Programming Language (Kernighan and Ritchie); C Programming: A Modern Approach (K. N. King); Expert C Programming: Deep C Secrets (van der Linden); Understanding and Using C Pointers (Reese).</p>
+<p><strong>Free resources:</strong> Beej&#x27;s Guide to C, Harvard CS50, Exercism C track.</p>
+<h1 id="part-b-interview-cheat-sheet">Part B: Interview Cheat Sheet</h1>
+<p>A compact quick-reference to revise the night before an interview.</p>
+<h2 id="b1-data-types-and-format-specifiers">B1. Data Types and Format Specifiers</h2>
+<div class="tw"><table><tr><th><strong>Type</strong></th><th><strong>Typical size</strong></th><th><strong>printf</strong></th><th><strong>Notes</strong></th></tr><tr><td><code>char</code></td><td>1 byte</td><td><code>%c</code> / <code>%d</code></td><td>Signedness of plain char is implementation-defined</td></tr><tr><td><code>unsigned char</code></td><td>1 byte</td><td><code>%u</code></td><td>0 to 255</td></tr><tr><td><code>short</code></td><td>2 bytes</td><td><code>%hd</code></td><td>-32768 to 32767</td></tr><tr><td><code>int</code></td><td>4 bytes</td><td><code>%d</code></td><td>About -2.1 billion to 2.1 billion</td></tr><tr><td><code>unsigned int</code></td><td>4 bytes</td><td><code>%u</code></td><td>0 to about 4.29 billion</td></tr><tr><td><code>long</code></td><td>8 bytes (4 on Windows)</td><td><code>%ld</code></td><td>Size differs by platform</td></tr><tr><td><code>long long</code></td><td>8 bytes</td><td><code>%lld</code></td><td>At least 64 bits</td></tr><tr><td><code>float</code></td><td>4 bytes</td><td><code>%f</code></td><td>About 6 to 7 decimal digits</td></tr><tr><td><code>double</code></td><td>8 bytes</td><td><code>%f</code> (print), <code>%lf</code> (scan)</td><td>About 15 digits; default for float literals</td></tr><tr><td><code>size_t</code></td><td>8 bytes</td><td><code>%zu</code></td><td>Result type of <code>sizeof</code></td></tr><tr><td>pointer</td><td>8 bytes</td><td><code>%p</code></td><td>4 bytes on 32-bit systems</td></tr><tr><td>string</td><td>-</td><td><code>%s</code></td><td>Null-terminated char array</td></tr></table></div>
+<p>Other specifiers: <code>%x</code> hex, <code>%o</code> octal, <code>%e</code> scientific, <code>%5d</code> width, <code>%-5d</code> left-aligned, <code>%05d</code> zero-padded, <code>%.2f</code> two decimals, <code>%%</code> literal percent.</p>
+<h2 id="b2-operator-precedence-high-to-low">B2. Operator Precedence (high to low)</h2>
+<div class="tw"><table><tr><th><strong>Level</strong></th><th><strong>Operators</strong></th><th><strong>Associativity</strong></th></tr><tr><td>1</td><td><code>()</code>  <code>[]</code>  <code>-&gt;</code>  <code>.</code>  postfix <code>++</code> <code>--</code></td><td>Left to right</td></tr><tr><td>2</td><td>prefix <code>++</code> <code>--</code>  unary <code>+</code> <code>-</code>  <code>!</code>  <code>~</code>  <code>*</code> (deref)  <code>&amp;</code>  <code>sizeof</code>  casts</td><td>Right to left</td></tr><tr><td>3</td><td><code>*</code>  <code>/</code>  <code>%</code></td><td>Left to right</td></tr><tr><td>4</td><td><code>+</code>  <code>-</code></td><td>Left to right</td></tr><tr><td>5</td><td><code>&lt;&lt;</code>  <code>&gt;&gt;</code></td><td>Left to right</td></tr><tr><td>6</td><td><code>&lt;</code>  <code>&lt;=</code>  <code>&gt;</code>  <code>&gt;=</code></td><td>Left to right</td></tr><tr><td>7</td><td><code>==</code>  <code>!=</code></td><td>Left to right</td></tr><tr><td>8</td><td><code>&amp;</code> (bitwise AND)</td><td>Left to right</td></tr><tr><td>9</td><td><code>^</code> (bitwise XOR)</td><td>Left to right</td></tr><tr><td>10</td><td><code>|</code> (bitwise OR)</td><td>Left to right</td></tr><tr><td>11</td><td><code>&amp;&amp;</code></td><td>Left to right</td></tr><tr><td>12</td><td><code>||</code></td><td>Left to right</td></tr><tr><td>13</td><td><code>?:</code> (ternary)</td><td>Right to left</td></tr><tr><td>14</td><td><code>=</code>  <code>+=</code>  <code>-=</code>  <code>*=</code>  <code>/=</code>  <code>&lt;&lt;=</code>  etc.</td><td>Right to left</td></tr><tr><td>15</td><td><code>,</code> (comma)</td><td>Left to right</td></tr></table></div>
+<p>Tip: bitwise operators rank below comparisons, so always parenthesize them: (x &amp; mask) == 0.</p>
+<h2 id="b3-reading-declarations">B3. Reading Declarations</h2>
+<div class="tw"><table><tr><th><strong>Declaration</strong></th><th><strong>Meaning</strong></th></tr><tr><td><code>int *p</code></td><td>p is a pointer to int</td></tr><tr><td><code>int **pp</code></td><td>pp is a pointer to a pointer to int</td></tr><tr><td><code>int *p[5]</code></td><td>p is an array of 5 pointers to int</td></tr><tr><td><code>int (*p)[5]</code></td><td>p is a pointer to an array of 5 ints</td></tr><tr><td><code>int *f(void)</code></td><td>f is a function returning a pointer to int</td></tr><tr><td><code>int (*f)(int)</code></td><td>f is a pointer to a function taking int and returning int</td></tr><tr><td><code>int (*f[3])(int)</code></td><td>f is an array of 3 pointers to functions taking int and returning int</td></tr><tr><td><code>const int *p</code></td><td>Pointer to a constant int (value read-only)</td></tr><tr><td><code>int *const p</code></td><td>Constant pointer to int (pointer fixed)</td></tr><tr><td><code>const int *const p</code></td><td>Constant pointer to a constant int</td></tr></table></div>
+<p>Method: start at the variable name, go right, then left, respecting parentheses.</p>
+<h2 id="b4-storage-classes-and-qualifiers-at-a-glance">B4. Storage Classes and Qualifiers at a Glance</h2>
+<div class="tw"><table><tr><th><strong>Keyword</strong></th><th><strong>Scope</strong></th><th><strong>Lifetime</strong></th><th><strong>Notes</strong></th></tr><tr><td><code>auto</code></td><td>Block</td><td>Until block ends</td><td>Default for locals</td></tr><tr><td><code>static</code> (local)</td><td>Block</td><td>Whole program</td><td>Initialized once; keeps value between calls</td></tr><tr><td><code>static</code> (global/function)</td><td>File only</td><td>Whole program</td><td>Internal linkage; hides symbol from other files</td></tr><tr><td><code>extern</code></td><td>Global</td><td>Whole program</td><td>Declaration only; defined elsewhere</td></tr><tr><td><code>register</code></td><td>Block</td><td>Until block ends</td><td>Hint only; cannot take address</td></tr><tr><td><code>const</code></td><td>-</td><td>-</td><td>Read-only; may live in read-only memory</td></tr><tr><td><code>volatile</code></td><td>-</td><td>-</td><td>Do not optimize away reads/writes</td></tr><tr><td><code>restrict</code></td><td>-</td><td>-</td><td>Pointer is the sole access path</td></tr></table></div>
+<h2 id="b5-standard-library-quick-reference">B5. Standard Library Quick Reference</h2>
+<h3 id="strings-and-memory-string-h">Strings and memory (string.h)</h3>
+<div class="tw"><table><tr><th><strong>Function</strong></th><th><strong>What it does</strong></th></tr><tr><td><code>strlen(s)</code></td><td>Length excluding the terminating null</td></tr><tr><td><code>strcpy(d, s)</code> / <code>strncpy(d, s, n)</code></td><td>Copy string (strncpy may not terminate)</td></tr><tr><td><code>strcat(d, s)</code> / <code>strncat(d, s, n)</code></td><td>Append string</td></tr><tr><td><code>strcmp(a, b)</code> / <code>strncmp(a, b, n)</code></td><td>Returns 0 if equal, negative or positive otherwise</td></tr><tr><td><code>strchr(s, c)</code> / <code>strrchr(s, c)</code></td><td>Find first or last occurrence of a character</td></tr><tr><td><code>strstr(h, n)</code></td><td>Find substring</td></tr><tr><td><code>memcpy(d, s, n)</code></td><td>Copy bytes; regions must not overlap</td></tr><tr><td><code>memmove(d, s, n)</code></td><td>Copy bytes; overlap is safe</td></tr><tr><td><code>memset(p, v, n)</code></td><td>Fill n bytes with value v</td></tr><tr><td><code>memcmp(a, b, n)</code></td><td>Compare n bytes</td></tr></table></div>
+<h3 id="memory-and-conversion-stdlib-h">Memory and conversion (stdlib.h)</h3>
+<div class="tw"><table><tr><th><strong>Function</strong></th><th><strong>What it does</strong></th></tr><tr><td><code>malloc(n)</code></td><td>Allocate n bytes, uninitialized</td></tr><tr><td><code>calloc(c, s)</code></td><td>Allocate c * s bytes, zeroed</td></tr><tr><td><code>realloc(p, n)</code></td><td>Resize block; may move; assign to a temp</td></tr><tr><td><code>free(p)</code></td><td>Release memory; pass NULL is safe</td></tr><tr><td><code>atoi</code> / <code>strtol</code> / <code>strtod</code></td><td>String to number (strtol reports errors)</td></tr><tr><td><code>qsort</code> / <code>bsearch</code></td><td>Sort and binary search with a comparison callback</td></tr><tr><td><code>rand</code> / <code>srand</code></td><td>Pseudo-random numbers</td></tr><tr><td><code>exit(n)</code> / <code>abort()</code></td><td>Terminate the program</td></tr></table></div>
+<h3 id="common-headers">Common headers</h3>
+<div class="tw"><table><tr><th><strong>Header</strong></th><th><strong>Contents</strong></th></tr><tr><td><code>stdio.h</code></td><td>printf, scanf, fopen, fgets, fread, fwrite, perror</td></tr><tr><td><code>stdlib.h</code></td><td>malloc, free, atoi, qsort, exit, rand</td></tr><tr><td><code>string.h</code></td><td>str* and mem* functions</td></tr><tr><td><code>ctype.h</code></td><td>isalpha, isdigit, isspace, toupper, tolower</td></tr><tr><td><code>math.h</code></td><td>sqrt, pow, fabs, ceil, floor (link with -lm)</td></tr><tr><td><code>stdint.h</code></td><td>int8_t to int64_t, uint8_t to uint64_t</td></tr><tr><td><code>stdbool.h</code></td><td>bool, true, false</td></tr><tr><td><code>stddef.h</code></td><td>size_t, ptrdiff_t, NULL, offsetof</td></tr><tr><td><code>limits.h</code></td><td>INT_MAX, INT_MIN, CHAR_BIT</td></tr><tr><td><code>assert.h</code></td><td>assert</td></tr><tr><td><code>stdarg.h</code></td><td>va_list, va_start, va_arg, va_end</td></tr><tr><td><code>errno.h</code></td><td>errno and error codes</td></tr></table></div>
+<h2 id="b6-bit-manipulation-tricks">B6. Bit Manipulation Tricks</h2>
+<pre><code>x &amp; (1u &lt;&lt; n)          // test bit n
+x |  (1u &lt;&lt; n)         // set bit n
+x &amp; ~(1u &lt;&lt; n)         // clear bit n
+x ^  (1u &lt;&lt; n)         // toggle bit n
+x &amp; (x - 1)            // clear lowest set bit
+x &amp; -x                 // isolate lowest set bit
+(x &amp; (x - 1)) == 0     // power of two (x &gt; 0)
+x &lt;&lt; k                 // multiply by 2^k
+x &gt;&gt; k                 // divide by 2^k (unsigned)
+(x &gt;&gt; n) &amp; 1u          // extract bit n
+(x &gt;&gt; p) &amp; ((1u &lt;&lt; w) - 1)   // extract w bits starting at bit p</code></pre>
+<pre><code>// Count set bits (Kernighan)
+int count = 0;
+while (x) { x &amp;= x - 1; count++; }</code></pre>
+<h2 id="b7-must-know-code-snippets">B7. Must-Know Code Snippets</h2>
+<h3 id="swap-using-a-temporary-and-using-a-pointer">Swap using a temporary and using a pointer</h3>
+<pre><code>void swap(int *a, int *b) {
+    int t = *a;
+    *a = *b;
+    *b = t;
+}</code></pre>
+<h3 id="string-length-and-string-copy">String length and string copy</h3>
+<pre><code>size_t my_strlen(const char *s) {
+    const char *p = s;
+    while (*p) p++;
+    return p - s;
+}</code></pre>
+<pre><code>char *my_strcpy(char *d, const char *s) {
+    char *r = d;
+    while ((*d++ = *s++)) ;
+    return r;
+}</code></pre>
+<h3 id="reverse-a-string-in-place">Reverse a string in place</h3>
+<pre><code>void reverse(char *s) {
+    int i = 0, j = strlen(s) - 1;
+    while (i &lt; j) {
+        char t = s[i];
+        s[i++] = s[j];
+        s[j--] = t;
+    }
+}</code></pre>
+<h3 id="linked-list-node-and-reverse">Linked list node and reverse</h3>
+<pre><code>struct Node { int data; struct Node *next; };</code></pre>
+<pre><code>struct Node *reverse_list(struct Node *head) {
+    struct Node *prev = NULL, *cur = head;
+    while (cur) {
+        struct Node *next = cur-&gt;next;
+        cur-&gt;next = prev;
+        prev = cur;
+        cur = next;
+    }
+    return prev;
+}</code></pre>
+<h3 id="detect-a-cycle-floyd">Detect a cycle (Floyd)</h3>
+<pre><code>int has_cycle(struct Node *head) {
+    struct Node *slow = head, *fast = head;
+    while (fast &amp;&amp; fast-&gt;next) {
+        slow = slow-&gt;next;
+        fast = fast-&gt;next-&gt;next;
+        if (slow == fast) return 1;
+    }
+    return 0;
+}</code></pre>
+<h3 id="atoi-with-sign-handling">atoi with sign handling</h3>
+<pre><code>int my_atoi(const char *s) {
+    int sign = 1, n = 0;
+    while (*s == &#x27; &#x27;) s++;
+    if (*s == &#x27;-&#x27;) { sign = -1; s++; }
+    else if (*s == &#x27;+&#x27;) s++;
+    while (*s &gt;= &#x27;0&#x27; &amp;&amp; *s &lt;= &#x27;9&#x27;)
+        n = n * 10 + (*s++ - &#x27;0&#x27;);
+    return sign * n;
+}</code></pre>
+<h3 id="endianness-check">Endianness check</h3>
+<pre><code>int n = 1;
+puts(*(char *)&amp;n ? &quot;little endian&quot; : &quot;big endian&quot;);</code></pre>
+<h3 id="function-pointer-and-qsort-comparator">Function pointer and qsort comparator</h3>
+<pre><code>int cmp(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x &gt; y) - (x &lt; y);   // avoids overflow of x - y
+}
+qsort(arr, n, sizeof arr[0], cmp);</code></pre>
+<h2 id="b8-top-gotchas-and-undefined-behavior">B8. Top Gotchas and Undefined Behavior</h2>
+<div class="tw"><table><tr><th><strong>Mistake</strong></th><th><strong>Why it is a problem / fix</strong></th></tr><tr><td>Using gets()</td><td>No bounds check; removed from the standard. Use fgets.</td></tr><tr><td>Forgetting the null terminator</td><td>String functions read past the buffer. Allocate length + 1.</td></tr><tr><td>sizeof on an array parameter</td><td>It gives the pointer size, not the array size. Pass the length.</td></tr><tr><td>Returning address of a local</td><td>The stack frame is gone; pointer dangles.</td></tr><tr><td>malloc without NULL check</td><td>Crash on allocation failure.</td></tr><tr><td>free then use</td><td>Use after free is undefined. Set pointer to NULL after free.</td></tr><tr><td>Double free</td><td>Heap corruption. Set pointer to NULL after free.</td></tr><tr><td>realloc assigned directly to the same pointer</td><td>On failure the original block leaks. Use a temp.</td></tr><tr><td>Modifying a string literal</td><td>Undefined; use a char array.</td></tr><tr><td>Signed integer overflow</td><td>Undefined; use unsigned or check before the operation.</td></tr><tr><td>Comparing signed with unsigned</td><td>Signed value converts to unsigned; negative becomes huge.</td></tr><tr><td>Comparing floats with ==</td><td>Use a tolerance: fabs(a - b) &lt; eps.</td></tr><tr><td>Macro with side effects</td><td>SQUARE(i++) evaluates i++ twice; parenthesize and avoid side effects.</td></tr><tr><td>Missing break in switch</td><td>Falls through to the next case.</td></tr><tr><td>= instead of == in a condition</td><td>Assigns and tests the result; enable -Wall.</td></tr><tr><td>Uninitialized local variables</td><td>Hold garbage values; reading them is undefined.</td></tr><tr><td>Wrong scanf specifier or missing &amp;</td><td>Undefined behavior; also check scanf return value.</td></tr><tr><td>Off-by-one in loops and buffers</td><td>Arrays are 0-indexed; the last valid index is n - 1.</td></tr></table></div>
+<h2 id="b9-last-minute-interview-checklist">B9. Last-Minute Interview Checklist</h2>
+<ul>
+<li>Can I explain pointer vs array vs pointer-to-array with a memory diagram?</li>
+<li>Can I write a linked list (insert, delete, reverse) without looking anything up?</li>
+<li>Can I implement strlen, strcpy, strcmp, atoi and memcpy from scratch?</li>
+<li>Do I know stack vs heap, and the five memory segments of a C program?</li>
+<li>Can I list five kinds of undefined behavior and two ways to detect them (sanitizers, valgrind)?</li>
+<li>Do I know the difference between static, extern, const and volatile?</li>
+<li>Can I do bit tricks: set, clear, toggle, test, count bits, power of two?</li>
+<li>Can I read a complex declaration like int (*f[3])(int)?</li>
+<li>Can I explain struct padding and compute sizeof for a small struct?</li>
+<li>Do I check every malloc, fopen and scanf return value?</li>
+<li>Can I explain what happens during compilation: preprocess, compile, assemble, link?</li>
+<li>Have I practiced thinking aloud while coding on a whiteboard or plain editor?</li>
+</ul>

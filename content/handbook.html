@@ -1,0 +1,880 @@
+<p><strong>Embedded C Programming Handbook</strong></p>
+<p>Learning Roadmap, Hands-On Programs and Interview Coding Problems</p>
+<p><em>Register-level examples for STM32 (Nucleo F401/F411), an AVR appendix, FreeRTOS examples, and solved interview problems</em></p>
+<h2 id="contents">Contents</h2>
+<p><strong>Part A: Learning Roadmap and Projects</strong></p>
+<ul>
+<li>A1. How to Use This Handbook</li>
+<li>A2. Hardware and Tools to Start</li>
+<li>A3. Stage-by-Stage Roadmap</li>
+<li>A4. Project Ideas (easy to advanced)</li>
+</ul>
+<p><strong>Part B: Hands-On Programs</strong></p>
+<ul>
+<li>B1. Project Setup and Common Helpers</li>
+<li>B2. GPIO: Blink LED</li>
+<li>B3. GPIO: Read a Button (polling)</li>
+<li>B4. SysTick Millisecond Timebase and Non-Blocking Blink</li>
+<li>B5. External Interrupt (button) with Debounce</li>
+<li>B6. Timer Interrupt</li>
+<li>B7. PWM: LED Fade</li>
+<li>B8. UART: Transmit, Echo and Receive Interrupt</li>
+<li>B9. UART Command Shell</li>
+<li>B10. ADC: Read a Potentiometer</li>
+<li>B11. SPI: Hardware and Software</li>
+<li>B12. I2C: Software (Bit-Banged) Driver and Sensor Read</li>
+<li>B13. Watchdog and Low-Power Sleep</li>
+<li>B14. FreeRTOS: Tasks, Queue from ISR, Mutex</li>
+<li>B15. Mini Project: Sensor Logger with State Machine</li>
+<li>B16. Appendix: Same Programs on AVR (Arduino Uno)</li>
+</ul>
+<p><strong>Part C: Interview Coding Problems with Solutions</strong></p>
+<ul>
+<li>C1. Bit Manipulation Problems</li>
+<li>C2. Memory and Pointer Problems</li>
+<li>C3. Embedded Design Problems</li>
+<li>C4. Predict the Output</li>
+<li>C5. How to Approach a Coding Round</li>
+</ul>
+<h1 id="part-a-learning-roadmap-and-projects">Part A: Learning Roadmap and Projects</h1>
+<h2 id="a1-how-to-use-this-handbook">A1. How to Use This Handbook</h2>
+<ul>
+<li>Work through the stages in order, but only move on when you can pass the &quot;Done when&quot; check of the current stage on real hardware.</li>
+<li>Type the code yourself, run it on a board, then change it on purpose (different pin, different period) and predict what will happen before running.</li>
+<li>Read the matching chapter of your MCU reference manual after each program. Find every register you touched and note its reset value.</li>
+<li>Code in Part B is written for an STM32F401RE or F411RE Nucleo board using CMSIS register names (<code>stm32f4xx.h</code>). The ideas transfer to any MCU: only the register names and addresses change. Part B16 shows the same ideas on AVR.</li>
+<li>Default clock after reset is the 16 MHz internal oscillator, so no clock configuration is needed for these programs.</li>
+<li>On Nucleo-F401RE the green LED is PA5, the user button is PC13 (pressed = low), and USART2 (PA2 TX, PA3 RX) goes to the ST-Link virtual COM port.</li>
+</ul>
+<h2 id="a2-hardware-and-tools-to-start">A2. Hardware and Tools to Start</h2>
+<div class="tw"><table><tr><th><strong>Item</strong></th><th><strong>Suggestion</strong></th></tr><tr><td>Board</td><td>STM32 Nucleo-F401RE or F411RE (recommended for this handbook). Alternatives: Arduino Uno (AVR), ESP32 DevKit, TI LaunchPad.</td></tr><tr><td>IDE / build</td><td>STM32CubeIDE, or VS Code with PlatformIO, or arm-none-eabi-gcc with Makefile and OpenOCD.</td></tr><tr><td>Debugger</td><td>Built-in ST-Link on Nucleo (SWD). Learn breakpoints, watch variables, view peripheral registers.</td></tr><tr><td>Serial terminal</td><td>PuTTY, Tera Term, or minicom at 115200 8N1.</td></tr><tr><td>Parts</td><td>Breadboard, LEDs, resistors (330 Ohm to 1 kOhm), push buttons, potentiometer (10 kOhm), jumper wires.</td></tr><tr><td>Sensors/modules</td><td>MPU6050 (I2C), BMP280 or DS3231 (I2C), SPI OLED or SPI flash, 16x2 LCD, servo motor.</td></tr><tr><td>Measurement</td><td>Inexpensive USB logic analyzer (8 channel) and a multimeter. An oscilloscope is a bonus.</td></tr><tr><td>Documents to keep open</td><td>MCU reference manual, datasheet, board user manual, and the schematic.</td></tr></table></div>
+<h2 id="a3-stage-by-stage-roadmap">A3. Stage-by-Stage Roadmap</h2>
+<p>Each stage has a goal, what to study, one project, and a check so you know you are done. There is no fixed timeline: move at your own speed.</p>
+<div class="tw"><table><tr><th><strong>Stage</strong></th><th><strong>Study</strong></th><th><strong>Project</strong></th><th><strong>Done when</strong></th></tr><tr><td>1</td><td>C for embedded: fixed-width types, bit operations, <code>volatile</code>, pointers, structs, macros, function pointers</td><td>Write bit macros and a small test program on your PC</td><td>You can set/clear/toggle/test any bit and explain volatile</td></tr><tr><td>2</td><td>Toolchain: compile, link, map file, linker script, startup code, flashing, debugging</td><td>Build a blank project, step through startup to main</td><td>You can explain what runs before main and read the map file</td></tr><tr><td>3</td><td>GPIO: clocks, modes, pull-ups, push-pull vs open-drain, set/reset registers</td><td>LED patterns, button-controlled LED</td><td>You configure GPIO without a HAL and read the reference manual yourself</td></tr><tr><td>4</td><td>Interrupts and SysTick: NVIC, priorities, ISR rules, flags, debounce</td><td>Interrupt-driven button, millisecond timebase, non-blocking blink</td><td>No delays in main loop; button handled in an ISR with a flag</td></tr><tr><td>5</td><td>Timers: prescaler, ARR, update interrupt, PWM, input capture</td><td>LED fade, servo control, frequency measurement</td><td>You can compute any timer period and duty cycle by hand</td></tr><tr><td>6</td><td>UART: baud rate, frames, polling, interrupts, ring buffers, formatting</td><td>Echo, command shell, logging</td><td>Command shell works without losing bytes at 115200</td></tr><tr><td>7</td><td>ADC: resolution, reference, sampling time, averaging, scaling</td><td>Potentiometer to PWM brightness, temperature logger</td><td>You convert raw ADC to millivolts and filter noise</td></tr><tr><td>8</td><td>SPI and I2C: modes, addressing, pull-ups, logic analyzer decoding</td><td>Read an I2C sensor, drive an SPI display or flash</td><td>You verify transactions on a logic analyzer</td></tr><tr><td>9</td><td>DMA, watchdog, low-power modes, memory sections, fault handling</td><td>UART DMA logger, watchdog recovery test, sleep with wake-up</td><td>You can debug a HardFault using the stacked PC</td></tr><tr><td>10</td><td>RTOS: tasks, queues, semaphores, mutexes, priorities, priority inversion</td><td>Multi-task sensor dashboard with ISR-to-task queue</td><td>Tasks communicate safely without race conditions</td></tr><tr><td>11</td><td>Bootloader, firmware update, CRC, version info, coding standards (MISRA ideas)</td><td>UART bootloader that validates and jumps to the application</td><td>Bad image is rejected; good image boots</td></tr><tr><td>12</td><td>Interview practice: bit problems, ring buffer, state machine, memory pool, explanation drills</td><td>Solve problems in Part C without notes and explain aloud</td><td>You solve typical problems in 15 to 20 minutes each</td></tr></table></div>
+<h2 id="a4-project-ideas-easy-to-advanced">A4. Project Ideas (easy to advanced)</h2>
+<div class="tw"><table><tr><th><strong>#</strong></th><th><strong>Project</strong></th><th><strong>Skills practiced</strong></th><th><strong>Level</strong></th></tr><tr><td>1</td><td>LED chaser / blink patterns</td><td>GPIO, timing, arrays</td><td>Easy</td></tr><tr><td>2</td><td>Traffic light controller</td><td>State machine, timers</td><td>Easy</td></tr><tr><td>3</td><td>Stopwatch with button and UART output</td><td>Interrupts, debounce, UART</td><td>Easy</td></tr><tr><td>4</td><td>UART command shell (led on/off, adc, status)</td><td>Ring buffer, parsing, ISR to main handoff</td><td>Medium</td></tr><tr><td>5</td><td>Temperature or light logger with averaging</td><td>ADC, filtering, scaling</td><td>Medium</td></tr><tr><td>6</td><td>Servo or DC motor speed control</td><td>PWM, timers, ADC input</td><td>Medium</td></tr><tr><td>7</td><td>I2C sensor reader (MPU6050/BMP280)</td><td>I2C, register maps, data conversion</td><td>Medium</td></tr><tr><td>8</td><td>SPI OLED or SD/flash interface</td><td>SPI, drivers, buffers</td><td>Medium</td></tr><tr><td>9</td><td>Data acquisition with DMA and circular buffer</td><td>ADC, DMA, double buffering</td><td>Advanced</td></tr><tr><td>10</td><td>RTOS dashboard (sensor task, display task, UART task)</td><td>Tasks, queues, mutexes</td><td>Advanced</td></tr><tr><td>11</td><td>UART bootloader with CRC and app jump</td><td>Flash programming, vector table, linker script</td><td>Advanced</td></tr><tr><td>12</td><td>Low-power battery sensor node</td><td>Sleep modes, RTC wake-up, watchdog</td><td>Advanced</td></tr></table></div>
+<p>Tip: keep every project in its own Git repository with a README showing wiring, build steps, and a short demo video or logic analyzer capture. This becomes your interview portfolio.</p>
+<h1 id="part-b-hands-on-programs">Part B: Hands-On Programs</h1>
+<p>All code assumes <code>#include &quot;stm32f4xx.h&quot;</code> and the default 16 MHz clock. Bit position values are explained in comments. Check each register against your MCU reference manual.</p>
+<h2 id="b1-project-setup-and-common-helpers">B1. Project Setup and Common Helpers</h2>
+<p>Put these helpers in a shared header; later programs use them.</p>
+<pre><code>#include &quot;stm32f4xx.h&quot;
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+#include &lt;string.h&gt;</code></pre>
+<pre><code>#define LED_PIN      5U                         /* PA5  */
+#define LED_ON()     (GPIOA-&gt;BSRR = (1U &lt;&lt; LED_PIN))
+#define LED_OFF()    (GPIOA-&gt;BSRR = (1U &lt;&lt; (LED_PIN + 16U)))
+#define LED_TOGGLE() (GPIOA-&gt;ODR ^= (1U &lt;&lt; LED_PIN))</code></pre>
+<pre><code>/* ----- 1 ms timebase using SysTick ----- */
+static volatile uint32_t ms_ticks;</code></pre>
+<pre><code>void SysTick_Handler(void) { ms_ticks++; }</code></pre>
+<pre><code>static inline uint32_t millis(void) { return ms_ticks; }</code></pre>
+<pre><code>void delay_ms(uint32_t d) {
+    uint32_t start = millis();
+    while ((uint32_t)(millis() - start) &lt; d) { }   /* safe across wrap-around */
+}</code></pre>
+<pre><code>void systick_init(void) {
+    SysTick_Config(SystemCoreClock / 1000U);        /* 16 MHz / 1000 = 1 ms */
+}</code></pre>
+<ul>
+<li><code>BSRR</code> writes are atomic: the lower 16 bits set pins, the upper 16 bits reset pins. No read-modify-write is needed.</li>
+<li><code>SystemCoreClock</code> holds the CPU frequency (16000000 after reset). <code>SysTick_Config</code> also enables the SysTick interrupt.</li>
+</ul>
+<h2 id="b2-gpio-blink-led">B2. GPIO: Blink LED</h2>
+<p><strong>Goal:</strong> configure a pin as output and toggle it. <strong>Concepts:</strong> enabling the peripheral clock, MODER fields, ODR vs BSRR.</p>
+<pre><code>void led_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOAEN;           /* 1. clock for GPIOA        */
+    GPIOA-&gt;MODER &amp;= ~(3U &lt;&lt; (LED_PIN * 2U));       /* 2. clear mode bits        */
+    GPIOA-&gt;MODER |=  (1U &lt;&lt; (LED_PIN * 2U));       /*    01 = general output    */
+    /* OTYPER default = push-pull, OSPEEDR default = low speed: fine for an LED */
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init();
+    led_init();
+    for (;;) {
+        LED_TOGGLE();
+        delay_ms(500);
+    }
+}</code></pre>
+<ul>
+<li>MODER uses two bits per pin: 00 input, 01 output, 10 alternate function, 11 analog.</li>
+<li>Try: make the LED blink SOS in Morse; change to an external LED on another pin; blink at 5 Hz and verify the period with a logic analyzer.</li>
+</ul>
+<h2 id="b3-gpio-read-a-button-polling">B3. GPIO: Read a Button (polling)</h2>
+<p><strong>Goal:</strong> LED follows the button. <strong>Concepts:</strong> input mode, IDR, active-low logic.</p>
+<pre><code>void button_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+    GPIOC-&gt;MODER &amp;= ~(3U &lt;&lt; (13U * 2U));          /* 00 = input                 */
+    /* Nucleo has an external pull-up on PC13. For a plain pin enable one:
+       GPIOC-&gt;PUPDR |= (1U &lt;&lt; (pin * 2U));  (01 = pull-up, 10 = pull-down)      */
+}</code></pre>
+<pre><code>static inline bool button_pressed(void) {
+    return (GPIOC-&gt;IDR &amp; (1U &lt;&lt; 13U)) == 0U;      /* pressed = low              */
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init(); button_init();
+    for (;;) {
+        if (button_pressed()) LED_ON(); else LED_OFF();
+    }
+}</code></pre>
+<ul>
+<li>A floating input reads random values. Always use a pull-up or pull-down (external or internal).</li>
+<li>Try: toggle the LED on each press (detect the edge, not the level) and see how bouncing causes false toggles. This motivates B5.</li>
+</ul>
+<h2 id="b4-systick-millisecond-timebase-and-non-blocking-blink">B4. SysTick Millisecond Timebase and Non-Blocking Blink</h2>
+<p><strong>Goal:</strong> run two periodic jobs without blocking delays. <strong>Concepts:</strong> free-running tick, wrap-safe comparison, cooperative scheduling.</p>
+<pre><code>typedef struct {
+    uint32_t period;
+    uint32_t last;
+    void (*run)(void);
+} Job;</code></pre>
+<pre><code>static void job_led(void)  { LED_TOGGLE(); }
+static void job_heartbeat(void) { /* e.g. send &quot;alive&quot; over UART */ }</code></pre>
+<pre><code>static Job jobs[] = {
+    { 500U,  0U, job_led },
+    { 2000U, 0U, job_heartbeat },
+};</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init();
+    for (;;) {
+        uint32_t now = millis();
+        for (uint32_t i = 0; i &lt; sizeof jobs / sizeof jobs[0]; i++) {
+            if ((uint32_t)(now - jobs[i].last) &gt;= jobs[i].period) {
+                jobs[i].last += jobs[i].period;      /* keeps long-term accuracy */
+                jobs[i].run();
+            }
+        }
+    }
+}</code></pre>
+<ul>
+<li>Using <code>last += period</code> instead of <code>last = now</code> avoids accumulating drift.</li>
+<li>Each job must be short. A long job delays every other one: that is the limitation of a cooperative scheduler.</li>
+</ul>
+<h2 id="b5-external-interrupt-button-with-debounce">B5. External Interrupt (button) with Debounce</h2>
+<p><strong>Goal:</strong> handle the button in an interrupt without bouncing. <strong>Concepts:</strong> EXTI, SYSCFG routing, NVIC, ISR flag handoff, debounce with time.</p>
+<pre><code>static volatile bool button_event = false;
+static volatile uint32_t last_press_ms = 0;</code></pre>
+<pre><code>void button_irq_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_SYSCFGEN;               /* needed for EXTI routing */</code></pre>
+<pre><code>    GPIOC-&gt;MODER &amp;= ~(3U &lt;&lt; (13U * 2U));                /* PC13 input              */</code></pre>
+<pre><code>    SYSCFG-&gt;EXTICR[3] &amp;= ~SYSCFG_EXTICR4_EXTI13;        /* EXTI13 &lt;- port C        */
+    SYSCFG-&gt;EXTICR[3] |=  SYSCFG_EXTICR4_EXTI13_PC;</code></pre>
+<pre><code>    EXTI-&gt;IMR  |= EXTI_IMR_MR13;                        /* unmask line 13          */
+    EXTI-&gt;FTSR |= EXTI_FTSR_TR13;                       /* falling edge = press    */</code></pre>
+<pre><code>    NVIC_SetPriority(EXTI15_10_IRQn, 2U);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+}</code></pre>
+<pre><code>void EXTI15_10_IRQHandler(void) {
+    if (EXTI-&gt;PR &amp; EXTI_PR_PR13) {
+        EXTI-&gt;PR = EXTI_PR_PR13;                        /* write 1 to clear flag   */
+        uint32_t now = millis();
+        if ((uint32_t)(now - last_press_ms) &gt; 50U) {    /* ignore bounces &lt; 50 ms  */
+            last_press_ms = now;
+            button_event = true;
+        }
+    }
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init(); button_irq_init();
+    for (;;) {
+        if (button_event) {
+            button_event = false;
+            LED_TOGGLE();
+        }
+    }
+}</code></pre>
+<ul>
+<li>The pending flag is write-1-to-clear. If you forget to clear it, the ISR fires continuously.</li>
+<li>The ISR only sets a flag; the real work happens in main. This keeps the ISR short.</li>
+<li>Try: count presses and print them over UART (after B8); add long-press detection using the press and release timestamps.</li>
+</ul>
+<h2 id="b6-timer-interrupt">B6. Timer Interrupt</h2>
+<p><strong>Goal:</strong> toggle the LED exactly once per second from a hardware timer. <strong>Concepts:</strong> prescaler, auto-reload, update interrupt.</p>
+<p>Calculation: timer clock 16 MHz, PSC = 15999 gives 1 kHz (1 ms per tick); ARR = 999 gives 1000 ticks = 1 second.</p>
+<pre><code>void tim2_init(void) {
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM2EN;
+    TIM2-&gt;PSC  = 16000U - 1U;                 /* 16 MHz / 16000 = 1 kHz       */
+    TIM2-&gt;ARR  = 1000U - 1U;                  /* 1000 ticks = 1 s             */
+    TIM2-&gt;EGR  = TIM_EGR_UG;                  /* load prescaler/ARR now       */
+    TIM2-&gt;SR   = 0U;                          /* clear flag caused by UG      */
+    TIM2-&gt;DIER |= TIM_DIER_UIE;               /* update interrupt enable      */
+    NVIC_EnableIRQ(TIM2_IRQn);
+    TIM2-&gt;CR1  |= TIM_CR1_CEN;                /* start counting               */
+}</code></pre>
+<pre><code>void TIM2_IRQHandler(void) {
+    if (TIM2-&gt;SR &amp; TIM_SR_UIF) {
+        TIM2-&gt;SR &amp;= ~TIM_SR_UIF;              /* clear update flag            */
+        LED_TOGGLE();
+    }
+}</code></pre>
+<pre><code>int main(void) {
+    led_init(); tim2_init();
+    for (;;) { __WFI(); }                     /* sleep until the next interrupt */
+}</code></pre>
+<ul>
+<li>Period = (PSC + 1) x (ARR + 1) / f_clk. Check with a logic analyzer.</li>
+<li>Try: change the period at runtime from a button press; measure the ISR duration by toggling a second GPIO inside it.</li>
+</ul>
+<h2 id="b7-pwm-led-fade">B7. PWM: LED Fade</h2>
+<p><strong>Goal:</strong> fade the on-board LED using PWM. <strong>Concepts:</strong> alternate function, output compare, duty cycle. PA5 is TIM2 channel 1 (alternate function 1).</p>
+<pre><code>void pwm_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM2EN;</code></pre>
+<pre><code>    GPIOA-&gt;MODER &amp;= ~(3U &lt;&lt; (5U * 2U));
+    GPIOA-&gt;MODER |=  (2U &lt;&lt; (5U * 2U));       /* 10 = alternate function       */
+    GPIOA-&gt;AFR[0] &amp;= ~(0xFU &lt;&lt; (5U * 4U));
+    GPIOA-&gt;AFR[0] |=  (1U   &lt;&lt; (5U * 4U));    /* AF1 = TIM2_CH1                */</code></pre>
+<pre><code>    TIM2-&gt;PSC   = 16U - 1U;                   /* 1 MHz timer clock             */
+    TIM2-&gt;ARR   = 1000U - 1U;                 /* 1 kHz PWM frequency           */
+    TIM2-&gt;CCMR1 = (6U &lt;&lt; 4) | (1U &lt;&lt; 3);      /* OC1M = 110 PWM mode 1, preload */
+    TIM2-&gt;CCER |= TIM_CCER_CC1E;              /* enable channel 1 output       */
+    TIM2-&gt;CR1  |= TIM_CR1_ARPE;
+    TIM2-&gt;EGR   = TIM_EGR_UG;
+    TIM2-&gt;CR1  |= TIM_CR1_CEN;
+}</code></pre>
+<pre><code>static inline void pwm_set_duty(uint16_t permille) {   /* 0..1000 */
+    TIM2-&gt;CCR1 = permille;                     /* duty = CCR1 / (ARR + 1)       */
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init(); pwm_init();
+    for (;;) {
+        for (uint16_t d = 0; d &lt;= 1000; d += 5) { pwm_set_duty(d); delay_ms(5); }
+        for (uint16_t d = 1000; d &gt; 0; d -= 5)  { pwm_set_duty(d); delay_ms(5); }
+    }
+}</code></pre>
+<ul>
+<li>Duty cycle = CCR / (ARR + 1). With ARR = 999, CCR = 250 gives 25 percent.</li>
+<li>For a hobby servo use a 50 Hz period (20 ms) with a pulse of 1 to 2 ms: PSC = 15 (1 MHz), ARR = 19999, CCR = 1000 to 2000.</li>
+<li>Human eyes see brightness non-linearly: a gamma lookup table makes fades look smoother.</li>
+</ul>
+<h2 id="b8-uart-transmit-echo-and-receive-interrupt">B8. UART: Transmit, Echo and Receive Interrupt</h2>
+<p><strong>Goal:</strong> send text to the PC, echo typed characters, then receive with an interrupt and a ring buffer. Terminal: 115200, 8N1.</p>
+<p>Baud calculation (oversampling by 16): USARTDIV = 16,000,000 / (16 x 115200) = 8.6806. Mantissa = 8, fraction = 0.6806 x 16 = 10.89, rounded to 11, so BRR = (8 &lt;&lt; 4) | 11 = 0x8B.</p>
+<pre><code>void uart2_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_USART2EN;</code></pre>
+<pre><code>    /* PA2 = TX, PA3 = RX, alternate function 7 */
+    GPIOA-&gt;MODER &amp;= ~((3U &lt;&lt; (2U * 2U)) | (3U &lt;&lt; (3U * 2U)));
+    GPIOA-&gt;MODER |=  ((2U &lt;&lt; (2U * 2U)) | (2U &lt;&lt; (3U * 2U)));
+    GPIOA-&gt;AFR[0] &amp;= ~((0xFU &lt;&lt; (2U * 4U)) | (0xFU &lt;&lt; (3U * 4U)));
+    GPIOA-&gt;AFR[0] |=  ((7U   &lt;&lt; (2U * 4U)) | (7U   &lt;&lt; (3U * 4U)));</code></pre>
+<pre><code>    USART2-&gt;BRR = 0x8BU;                                    /* 115200 @ 16 MHz */
+    USART2-&gt;CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE;
+}</code></pre>
+<pre><code>void uart_putc(char ch) {
+    while (!(USART2-&gt;SR &amp; USART_SR_TXE)) { }                /* wait for empty  */
+    USART2-&gt;DR = (uint8_t)ch;
+}</code></pre>
+<pre><code>void uart_puts(const char *s) { while (*s) uart_putc(*s++); }</code></pre>
+<pre><code>void uart_put_u32(uint32_t v) {
+    char buf[11]; int i = 0;
+    if (v == 0U) { uart_putc(&#x27;0&#x27;); return; }
+    while (v) { buf[i++] = (char)(&#x27;0&#x27; + v % 10U); v /= 10U; }
+    while (i--) uart_putc(buf[i]);
+}</code></pre>
+<pre><code>/* Polling echo */
+int main(void) {
+    systick_init(); uart2_init();
+    uart_puts(&quot;Hello from STM32\r\n&quot;);
+    for (;;) {
+        if (USART2-&gt;SR &amp; USART_SR_RXNE) {                   /* byte received   */
+            uart_putc((char)USART2-&gt;DR);                    /* echo it back    */
+        }
+    }
+}</code></pre>
+<h3 id="receive-with-interrupt-and-ring-buffer">Receive with interrupt and ring buffer</h3>
+<pre><code>#define RB_SIZE 64U                                         /* power of two    */
+typedef struct {
+    uint8_t buf[RB_SIZE];
+    volatile uint16_t head, tail;
+} RingBuf;</code></pre>
+<pre><code>static RingBuf rx;</code></pre>
+<pre><code>static int rb_put(RingBuf *rb, uint8_t v) {
+    uint16_t next = (uint16_t)((rb-&gt;head + 1U) &amp; (RB_SIZE - 1U));
+    if (next == rb-&gt;tail) return -1;                        /* full  */
+    rb-&gt;buf[rb-&gt;head] = v; rb-&gt;head = next; return 0;
+}</code></pre>
+<pre><code>static int rb_get(RingBuf *rb, uint8_t *v) {
+    if (rb-&gt;head == rb-&gt;tail) return -1;                    /* empty */
+    *v = rb-&gt;buf[rb-&gt;tail];
+    rb-&gt;tail = (uint16_t)((rb-&gt;tail + 1U) &amp; (RB_SIZE - 1U));
+    return 0;
+}</code></pre>
+<pre><code>void uart2_rx_irq_enable(void) {
+    USART2-&gt;CR1 |= USART_CR1_RXNEIE;                        /* interrupt on RXNE */
+    NVIC_SetPriority(USART2_IRQn, 3U);
+    NVIC_EnableIRQ(USART2_IRQn);
+}</code></pre>
+<pre><code>void USART2_IRQHandler(void) {
+    if (USART2-&gt;SR &amp; USART_SR_RXNE) {
+        uint8_t b = (uint8_t)USART2-&gt;DR;                    /* reading DR clears RXNE */
+        (void)rb_put(&amp;rx, b);                               /* drop byte if full      */
+    }
+}</code></pre>
+<ul>
+<li>Reading <code>DR</code> clears the RXNE flag. Overrun errors (ORE) happen if bytes arrive faster than you read them.</li>
+<li>The ring buffer has one producer (ISR) and one consumer (main), so it needs no lock. One slot is left empty to tell full from empty.</li>
+<li>For transmit-heavy designs use a TX ring buffer with the TXE interrupt, or DMA.</li>
+</ul>
+<h2 id="b9-uart-command-shell">B9. UART Command Shell</h2>
+<p><strong>Goal:</strong> type commands in a terminal to control the board: <code>led on</code>, <code>led off</code>, <code>adc</code> (after B10), <code>ticks</code>.</p>
+<pre><code>static char    line[32];
+static uint8_t line_len;</code></pre>
+<pre><code>static void handle_command(const char *s) {
+    if      (strcmp(s, &quot;led on&quot;)  == 0) { LED_ON();  uart_puts(&quot;OK\r\n&quot;); }
+    else if (strcmp(s, &quot;led off&quot;) == 0) { LED_OFF(); uart_puts(&quot;OK\r\n&quot;); }
+    else if (strcmp(s, &quot;ticks&quot;)   == 0) { uart_put_u32(millis()); uart_puts(&quot; ms\r\n&quot;); }
+    else if (strcmp(s, &quot;adc&quot;)     == 0) { uart_put_u32(adc_read_mv()); uart_puts(&quot; mV\r\n&quot;); }
+    else                                  { uart_puts(&quot;unknown command\r\n&quot;); }
+}</code></pre>
+<pre><code>void shell_poll(void) {
+    uint8_t c;
+    while (rb_get(&amp;rx, &amp;c) == 0) {
+        if (c == &#x27;\r&#x27; || c == &#x27;\n&#x27;) {
+            line[line_len] = &#x27;\0&#x27;;
+            if (line_len) handle_command(line);
+            line_len = 0;
+            uart_puts(&quot;&gt; &quot;);
+        } else if (line_len &lt; sizeof line - 1U) {
+            line[line_len++] = (char)c;
+            uart_putc((char)c);                             /* local echo */
+        }                                                   /* else: ignore overflow */
+    }
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init(); uart2_init(); uart2_rx_irq_enable();
+    uart_puts(&quot;Shell ready\r\n&gt; &quot;);
+    for (;;) { shell_poll(); }
+}</code></pre>
+<ul>
+<li>Never overflow the line buffer: check the length before every store.</li>
+<li>Try: add a command table (name, handler function pointer), argument parsing (<code>pwm 250</code>), backspace handling, and help text.</li>
+</ul>
+<h2 id="b10-adc-read-a-potentiometer">B10. ADC: Read a Potentiometer</h2>
+<p><strong>Goal:</strong> read PA0 (ADC1 channel 0) and convert to millivolts. Wire the potentiometer ends to 3.3 V and GND, and the wiper to PA0.</p>
+<pre><code>void adc_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_ADC1EN;</code></pre>
+<pre><code>    GPIOA-&gt;MODER |= (3U &lt;&lt; (0U * 2U));         /* 11 = analog mode for PA0      */</code></pre>
+<pre><code>    ADC1-&gt;SMPR2 = 7U;                          /* channel 0: longest sampling   */
+    ADC1-&gt;SQR1  = 0U;                          /* 1 conversion in the sequence  */
+    ADC1-&gt;SQR3  = 0U;                          /* first conversion = channel 0  */
+    ADC1-&gt;CR2  |= ADC_CR2_ADON;                /* power on ADC                  */
+}</code></pre>
+<pre><code>uint16_t adc_read_raw(void) {
+    ADC1-&gt;CR2 |= ADC_CR2_SWSTART;              /* start conversion              */
+    while (!(ADC1-&gt;SR &amp; ADC_SR_EOC)) { }       /* wait end of conversion        */
+    return (uint16_t)ADC1-&gt;DR;                 /* reading DR clears EOC         */
+}</code></pre>
+<pre><code>uint16_t adc_read_avg(uint8_t n) {             /* simple averaging              */
+    uint32_t sum = 0;
+    for (uint8_t i = 0; i &lt; n; i++) sum += adc_read_raw();
+    return (uint16_t)(sum / n);
+}</code></pre>
+<pre><code>uint32_t adc_read_mv(void) {
+    return ((uint32_t)adc_read_avg(16) * 3300U) / 4095U;   /* 12-bit, Vref 3.3 V */
+}</code></pre>
+<ul>
+<li>12-bit ADC: 4096 levels, one step is about 0.8 mV at 3.3 V.</li>
+<li>Use the largest sampling time for high-impedance sources such as a potentiometer. Add a small capacitor on the input to reduce noise.</li>
+<li>Try: map the ADC value to PWM duty (B7) to make a dimmer; implement a moving-average filter (Part C3); log values over UART.</li>
+</ul>
+<h2 id="b11-spi-hardware-and-software">B11. SPI: Hardware and Software</h2>
+<p><strong>Hardware SPI1 master</strong> (PA5 SCK, PA6 MISO, PA7 MOSI, alternate function 5; chip select on PB6 as a normal GPIO). On the Nucleo, PA5 is also the LED, so the LED will flicker: use SPI2 pins on PB13/PB14/PB15 (APB1) if that bothers you.</p>
+<pre><code>void spi1_init(void) {
+    RCC-&gt;AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_SPI1EN;</code></pre>
+<pre><code>    /* PA5, PA6, PA7 -&gt; alternate function 5 */
+    GPIOA-&gt;MODER &amp;= ~((3U &lt;&lt; 10) | (3U &lt;&lt; 12) | (3U &lt;&lt; 14));
+    GPIOA-&gt;MODER |=  ((2U &lt;&lt; 10) | (2U &lt;&lt; 12) | (2U &lt;&lt; 14));
+    GPIOA-&gt;AFR[0] &amp;= ~((0xFU &lt;&lt; 20) | (0xFU &lt;&lt; 24) | (0xFU &lt;&lt; 28));
+    GPIOA-&gt;AFR[0] |=  ((5U   &lt;&lt; 20) | (5U   &lt;&lt; 24) | (5U   &lt;&lt; 28));</code></pre>
+<pre><code>    /* PB6 = chip select, output, idle high */
+    GPIOB-&gt;MODER &amp;= ~(3U &lt;&lt; 12);  GPIOB-&gt;MODER |= (1U &lt;&lt; 12);
+    GPIOB-&gt;BSRR = (1U &lt;&lt; 6);</code></pre>
+<pre><code>    /* Master, software slave management, baud = fPCLK/16 = 1 MHz, mode 0 */
+    SPI1-&gt;CR1 = SPI_CR1_MSTR | SPI_CR1_SSM | SPI_CR1_SSI | (3U &lt;&lt; 3);
+    SPI1-&gt;CR1 |= SPI_CR1_SPE;                                 /* enable last */
+}</code></pre>
+<pre><code>uint8_t spi1_xfer(uint8_t tx) {
+    while (!(SPI1-&gt;SR &amp; SPI_SR_TXE)) { }
+    SPI1-&gt;DR = tx;
+    while (!(SPI1-&gt;SR &amp; SPI_SR_RXNE)) { }
+    return (uint8_t)SPI1-&gt;DR;
+}</code></pre>
+<pre><code>#define CS_LOW()   (GPIOB-&gt;BSRR = (1U &lt;&lt; (6U + 16U)))
+#define CS_HIGH()  (GPIOB-&gt;BSRR = (1U &lt;&lt; 6U))</code></pre>
+<pre><code>/* Example: read the JEDEC ID of an SPI flash (command 0x9F) */
+void flash_read_id(uint8_t id[3]) {
+    CS_LOW();
+    (void)spi1_xfer(0x9F);
+    id[0] = spi1_xfer(0xFF);
+    id[1] = spi1_xfer(0xFF);
+    id[2] = spi1_xfer(0xFF);
+    while (SPI1-&gt;SR &amp; SPI_SR_BSY) { }                         /* wait until idle */
+    CS_HIGH();
+}</code></pre>
+<p><strong>Software (bit-banged) SPI, mode 0</strong> works on any MCU; replace the macros with your GPIO operations.</p>
+<pre><code>/* Provide: SCK_HIGH/LOW, MOSI_HIGH/LOW, MISO_READ, spi_delay() */
+uint8_t soft_spi_xfer(uint8_t tx) {
+    uint8_t rx = 0;
+    for (int i = 7; i &gt;= 0; i--) {                 /* MSB first                    */
+        if (tx &amp; (1U &lt;&lt; i)) MOSI_HIGH(); else MOSI_LOW();
+        spi_delay();
+        SCK_HIGH();                                /* rising edge: slave samples   */
+        rx = (uint8_t)((rx &lt;&lt; 1) | (MISO_READ() ? 1U : 0U));
+        spi_delay();
+        SCK_LOW();                                 /* falling edge: next bit shifts */
+    }
+    return rx;
+}</code></pre>
+<ul>
+<li>SPI is full duplex: every byte sent also receives a byte. To read, send a dummy byte (0xFF).</li>
+<li>Mode (CPOL, CPHA) must match the device datasheet. Check clock polarity and sampling edge on a logic analyzer.</li>
+<li>Always keep chip select high when idle and low only during a transaction.</li>
+</ul>
+<h2 id="b12-i2c-software-bit-banged-driver-and-sensor-read">B12. I2C: Software (Bit-Banged) Driver and Sensor Read</h2>
+<p>A bit-banged I2C driver is a great way to understand the protocol and works on any MCU. Use two GPIO pins configured as open-drain with external 4.7 kOhm pull-ups to 3.3 V. Releasing a line means setting it high (the pull-up raises it); driving low pulls it down.</p>
+<pre><code>/* Provide these for your pins (open-drain outputs, input readable):
+   SDA_HIGH() SDA_LOW() SDA_READ()  SCL_HIGH() SCL_LOW()  i2c_delay()  */</code></pre>
+<pre><code>static void i2c_start(void) {
+    SDA_HIGH(); SCL_HIGH(); i2c_delay();
+    SDA_LOW();  i2c_delay();                  /* SDA falls while SCL high = START */
+    SCL_LOW();
+}</code></pre>
+<pre><code>static void i2c_stop(void) {
+    SDA_LOW();  i2c_delay();
+    SCL_HIGH(); i2c_delay();
+    SDA_HIGH(); i2c_delay();                  /* SDA rises while SCL high = STOP  */
+}</code></pre>
+<pre><code>static bool i2c_write_byte(uint8_t b) {       /* returns true if slave ACKed      */
+    for (int i = 7; i &gt;= 0; i--) {
+        if (b &amp; (1U &lt;&lt; i)) SDA_HIGH(); else SDA_LOW();
+        i2c_delay(); SCL_HIGH(); i2c_delay(); SCL_LOW();
+    }
+    SDA_HIGH();                               /* release SDA for the ACK bit      */
+    i2c_delay(); SCL_HIGH(); i2c_delay();
+    bool ack = (SDA_READ() == 0);             /* slave pulls SDA low to ACK       */
+    SCL_LOW();
+    return ack;
+}</code></pre>
+<pre><code>static uint8_t i2c_read_byte(bool ack) {
+    uint8_t v = 0;
+    SDA_HIGH();                               /* release SDA so slave can drive   */
+    for (int i = 0; i &lt; 8; i++) {
+        i2c_delay(); SCL_HIGH(); i2c_delay();
+        v = (uint8_t)((v &lt;&lt; 1) | (SDA_READ() ? 1U : 0U));
+        SCL_LOW();
+    }
+    if (ack) SDA_LOW(); else SDA_HIGH();      /* ACK to continue, NACK to end     */
+    i2c_delay(); SCL_HIGH(); i2c_delay(); SCL_LOW();
+    SDA_HIGH();
+    return v;
+}</code></pre>
+<pre><code>/* Read one register: START, addr+W, reg, repeated START, addr+R, data, NACK, STOP */
+bool i2c_read_reg(uint8_t addr7, uint8_t reg, uint8_t *out) {
+    i2c_start();
+    if (!i2c_write_byte((uint8_t)(addr7 &lt;&lt; 1)))      { i2c_stop(); return false; }
+    if (!i2c_write_byte(reg))                        { i2c_stop(); return false; }
+    i2c_start();                                     /* repeated start */
+    if (!i2c_write_byte((uint8_t)((addr7 &lt;&lt; 1) | 1U))) { i2c_stop(); return false; }
+    *out = i2c_read_byte(false);
+    i2c_stop();
+    return true;
+}</code></pre>
+<pre><code>/* Sensor check: MPU6050 at 7-bit address 0x68, WHO_AM_I register 0x75 returns 0x68 */
+bool mpu_present(void) {
+    uint8_t id = 0;
+    return i2c_read_reg(0x68, 0x75, &amp;id) &amp;&amp; id == 0x68;
+}</code></pre>
+<ul>
+<li>Frame order: START, 7-bit address plus R/W bit, ACK, data bytes with ACKs, STOP. The 7-bit address is shifted left by one before adding the R/W bit; many datasheets quote the 8-bit form, so check which one you are using.</li>
+<li>If the bus hangs with SDA stuck low, toggle SCL up to nine times and send a STOP to release the slave.</li>
+<li>Hardware I2C steps (instead of bit-banging): enable the GPIO and I2C clocks, set pins to alternate function open-drain with pull-ups, configure the peripheral clock and clock control registers (CCR/TRISE), enable the peripheral, then follow the START, address, data, STOP flag sequence. Many people use the vendor HAL for this after understanding the bit-banged version.</li>
+<li>Always verify the first transaction with a logic analyzer protocol decoder.</li>
+</ul>
+<h2 id="b13-watchdog-and-low-power-sleep">B13. Watchdog and Low-Power Sleep</h2>
+<h3 id="independent-watchdog-iwdg">Independent watchdog (IWDG)</h3>
+<pre><code>void iwdg_init(void) {
+    IWDG-&gt;KR  = 0x5555U;        /* unlock PR and RLR                            */
+    IWDG-&gt;PR  = 3U;             /* prescaler /32: LSI (about 32 kHz) -&gt; 1 kHz   */
+    IWDG-&gt;RLR = 1999U;          /* about 2 s timeout (LSI is only approximate)  */
+    IWDG-&gt;KR  = 0xCCCCU;        /* start watchdog (cannot be stopped)           */
+}
+static inline void iwdg_kick(void) { IWDG-&gt;KR = 0xAAAAU; }</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init(); iwdg_init();
+    for (;;) {
+        do_work();                       /* must finish well within 2 s         */
+        iwdg_kick();                     /* only kick when the system is healthy */
+    }
+}</code></pre>
+<ul>
+<li>Test it: add an infinite loop that skips the kick and confirm the MCU resets. Read the reset flags in RCC-&gt;CSR to report &quot;watchdog reset&quot; at boot.</li>
+<li>Kick from the main flow after checking that all critical tasks reported in, not from a timer ISR.</li>
+</ul>
+<h3 id="sleep-until-an-interrupt">Sleep until an interrupt</h3>
+<pre><code>for (;;) {
+    __WFI();                    /* CPU sleeps until any enabled interrupt       */
+    process_events();           /* handle flags set by ISRs                     */
+}</code></pre>
+<ul>
+<li>Lower power further by turning off unused peripheral clocks, reducing the clock speed, and using stop or standby modes with RTC or external pin wake-up (see the power chapter in the manual).</li>
+</ul>
+<h2 id="b14-freertos-tasks-queue-from-isr-mutex">B14. FreeRTOS: Tasks, Queue from ISR, Mutex</h2>
+<pre><code>#include &quot;FreeRTOS.h&quot;
+#include &quot;task.h&quot;
+#include &quot;queue.h&quot;
+#include &quot;semphr.h&quot;</code></pre>
+<pre><code>static QueueHandle_t     rx_queue;
+static SemaphoreHandle_t uart_mutex;</code></pre>
+<pre><code>static void uart_print_safe(const char *s) {
+    xSemaphoreTake(uart_mutex, portMAX_DELAY);       /* one task prints at a time */
+    uart_puts(s);
+    xSemaphoreGive(uart_mutex);
+}</code></pre>
+<pre><code>static void task_blink(void *arg) {
+    (void)arg;
+    for (;;) {
+        LED_TOGGLE();
+        vTaskDelay(pdMS_TO_TICKS(500));              /* blocks, lets others run   */
+    }
+}</code></pre>
+<pre><code>static void task_rx(void *arg) {
+    (void)arg;
+    uint8_t b;
+    for (;;) {
+        if (xQueueReceive(rx_queue, &amp;b, portMAX_DELAY) == pdPASS) {
+            uart_print_safe(&quot;got a byte\r\n&quot;);
+        }
+    }
+}</code></pre>
+<pre><code>void USART2_IRQHandler(void) {
+    BaseType_t woken = pdFALSE;
+    if (USART2-&gt;SR &amp; USART_SR_RXNE) {
+        uint8_t b = (uint8_t)USART2-&gt;DR;
+        xQueueSendFromISR(rx_queue, &amp;b, &amp;woken);     /* ISR-safe API only         */
+    }
+    portYIELD_FROM_ISR(woken);                       /* switch now if needed      */
+}</code></pre>
+<pre><code>int main(void) {
+    __disable_irq();                                 /* stay quiet until the scheduler starts */
+    NVIC_SetPriorityGrouping(0U);                    /* FreeRTOS wants all priority bits as preemption bits */
+    led_init(); uart2_init();
+    rx_queue   = xQueueCreate(32, sizeof(uint8_t)); /* create the queue BEFORE the RX interrupt can fire */
+    uart_mutex = xSemaphoreCreateMutex();
+    uart2_rx_irq_enable();
+    NVIC_SetPriority(USART2_IRQn, 6U);               /* B8 used 3: too urgent for FromISR calls; use a value &gt;= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY (5 in the CubeMX default) */</code></pre>
+<pre><code>    xTaskCreate(task_blink, &quot;blink&quot;, 128, NULL, 1, NULL);
+    xTaskCreate(task_rx,    &quot;rx&quot;,    256, NULL, 2, NULL);   /* higher priority    */
+    vTaskStartScheduler();                           /* never returns             */
+    for (;;) { }
+}</code></pre>
+<ul>
+<li>Interrupts that call FreeRTOS &quot;FromISR&quot; functions must have a priority number that is not more urgent than <code>configMAX_SYSCALL_INTERRUPT_PRIORITY</code> (on Cortex-M a larger number is less urgent). The USART2 priority of 3 used in B8 is too urgent for FreeRTOS, so raise its number as shown above. Mistakes here cause random crashes.</li>
+<li>Size each task stack with care (words, not bytes in FreeRTOS). Enable stack overflow checking during development.</li>
+<li>Use queues to pass data, mutexes to protect shared resources, and binary semaphores to signal events from ISRs.</li>
+<li>Try: add a third task that reads the ADC every 100 ms and sends results through a queue to a printing task; then deliberately create priority inversion and see how a mutex with priority inheritance helps.</li>
+</ul>
+<h2 id="b15-mini-project-sensor-logger-with-state-machine">B15. Mini Project: Sensor Logger with State Machine</h2>
+<p>Combine everything: read the ADC every second, average it, log it over UART, and allow commands. A state machine controls the mode.</p>
+<pre><code>typedef enum { ST_IDLE, ST_LOGGING, ST_ERROR } State;</code></pre>
+<pre><code>static State state = ST_IDLE;
+static uint32_t last_sample_ms;</code></pre>
+<pre><code>static void on_command(const char *cmd) {
+    if      (strcmp(cmd, &quot;start&quot;) == 0 &amp;&amp; state == ST_IDLE)    state = ST_LOGGING;
+    else if (strcmp(cmd, &quot;stop&quot;)  == 0 &amp;&amp; state == ST_LOGGING) state = ST_IDLE;
+    else if (strcmp(cmd, &quot;reset&quot;) == 0)                        state = ST_IDLE;
+}</code></pre>
+<pre><code>int main(void) {
+    systick_init(); led_init(); uart2_init(); uart2_rx_irq_enable(); adc_init();
+    iwdg_init();
+    for (;;) {
+        shell_poll();                                         /* parse commands    */
+        switch (state) {
+        case ST_IDLE:
+            LED_OFF();
+            break;
+        case ST_LOGGING:
+            if ((uint32_t)(millis() - last_sample_ms) &gt;= 1000U) {
+                last_sample_ms += 1000U;
+                uint32_t mv = adc_read_mv();
+                uart_put_u32(millis()); uart_puts(&quot;,&quot;); uart_put_u32(mv); uart_puts(&quot;\r\n&quot;);
+                LED_TOGGLE();
+                if (mv &gt; 3200U) state = ST_ERROR;             /* out-of-range input */
+            }
+            break;
+        case ST_ERROR:
+            LED_ON();                                         /* solid LED = error  */
+            break;
+        }
+        iwdg_kick();
+    }
+}</code></pre>
+<ul>
+<li>Extend: store the last 60 samples in a circular buffer and add a <code>dump</code> command; compute min, max and average; add a version string and a build timestamp; place calibration constants in a Flash page.</li>
+</ul>
+<h2 id="b16-appendix-same-programs-on-avr-arduino-uno-atmega328p-16-mhz">B16. Appendix: Same Programs on AVR (Arduino Uno, ATmega328P, 16 MHz)</h2>
+<h3 id="blink-pb5-is-the-on-board-led">Blink (PB5 is the on-board LED)</h3>
+<pre><code>#define F_CPU 16000000UL
+#include &lt;avr/io.h&gt;
+#include &lt;util/delay.h&gt;</code></pre>
+<pre><code>int main(void) {
+    DDRB |= (1 &lt;&lt; DDB5);              /* PB5 as output   */
+    for (;;) {
+        PORTB ^= (1 &lt;&lt; PB5);          /* toggle LED      */
+        _delay_ms(500);
+    }
+}</code></pre>
+<h3 id="uart-at-9600-baud">UART at 9600 baud</h3>
+<pre><code>#define BAUD 9600
+#define UBRR_VAL (F_CPU / 16UL / BAUD - 1UL)     /* = 103 */</code></pre>
+<pre><code>void uart_init(void) {
+    UBRR0H = (uint8_t)(UBRR_VAL &gt;&gt; 8);
+    UBRR0L = (uint8_t)UBRR_VAL;
+    UCSR0B = (1 &lt;&lt; TXEN0) | (1 &lt;&lt; RXEN0);
+    UCSR0C = (1 &lt;&lt; UCSZ01) | (1 &lt;&lt; UCSZ00);      /* 8 data bits, 1 stop, no parity */
+}
+void uart_putc(char c) { while (!(UCSR0A &amp; (1 &lt;&lt; UDRE0))) { } UDR0 = c; }
+char uart_getc(void)   { while (!(UCSR0A &amp; (1 &lt;&lt; RXC0)))  { } return UDR0; }</code></pre>
+<h3 id="timer1-interrupt-every-1-second-ctc-mode">Timer1 interrupt every 1 second (CTC mode)</h3>
+<pre><code>#include &lt;avr/interrupt.h&gt;</code></pre>
+<pre><code>ISR(TIMER1_COMPA_vect) { PORTB ^= (1 &lt;&lt; PB5); }</code></pre>
+<pre><code>void timer1_init(void) {
+    OCR1A  = 15624;                              /* 16 MHz / 1024 = 15625 Hz      */
+    TCCR1B = (1 &lt;&lt; WGM12) | (1 &lt;&lt; CS12) | (1 &lt;&lt; CS10);   /* CTC, prescaler 1024   */
+    TIMSK1 = (1 &lt;&lt; OCIE1A);                      /* compare match interrupt       */
+    sei();                                       /* global interrupt enable       */
+}</code></pre>
+<h3 id="adc-on-channel-0-a0">ADC on channel 0 (A0)</h3>
+<pre><code>void adc_init(void) {
+    ADMUX  = (1 &lt;&lt; REFS0);                                     /* AVcc reference, channel 0 */
+    ADCSRA = (1 &lt;&lt; ADEN) | (1 &lt;&lt; ADPS2) | (1 &lt;&lt; ADPS1) | (1 &lt;&lt; ADPS0);  /* /128 = 125 kHz */
+}
+uint16_t adc_read(void) {
+    ADCSRA |= (1 &lt;&lt; ADSC);                                     /* start conversion          */
+    while (ADCSRA &amp; (1 &lt;&lt; ADSC)) { }                           /* wait until finished       */
+    return ADC;                                                /* 10-bit result             */
+}</code></pre>
+<ul>
+<li>AVR has no NVIC: interrupts are enabled globally with <code>sei()</code> and handlers are written with the <code>ISR(vector)</code> macro.</li>
+<li>10-bit ADC: millivolts = raw x 5000 / 1023 with a 5 V reference.</li>
+</ul>
+<h1 id="part-c-interview-coding-problems-with-solutions">Part C: Interview Coding Problems with Solutions</h1>
+<h2 id="c1-bit-manipulation-problems">C1. Bit Manipulation Problems</h2>
+<h3 id="1-insert-a-value-into-a-bit-field">1. Insert a value into a bit field</h3>
+<pre><code>uint32_t set_field(uint32_t reg, uint8_t pos, uint8_t width, uint32_t val) {
+    uint32_t mask = ((1UL &lt;&lt; width) - 1UL) &lt;&lt; pos;
+    return (reg &amp; ~mask) | ((val &lt;&lt; pos) &amp; mask);
+}</code></pre>
+<h3 id="2-extract-a-bit-field">2. Extract a bit field</h3>
+<pre><code>uint32_t get_field(uint32_t reg, uint8_t pos, uint8_t width) {
+    return (reg &gt;&gt; pos) &amp; ((1UL &lt;&lt; width) - 1UL);
+}</code></pre>
+<h3 id="3-swap-odd-and-even-bits">3. Swap odd and even bits</h3>
+<pre><code>uint32_t swap_odd_even(uint32_t x) {
+    return ((x &amp; 0xAAAAAAAAUL) &gt;&gt; 1) | ((x &amp; 0x55555555UL) &lt;&lt; 1);
+}</code></pre>
+<h3 id="4-count-trailing-zeros-position-of-lowest-set-bit">4. Count trailing zeros (position of lowest set bit)</h3>
+<pre><code>int ctz(uint32_t x) {
+    if (x == 0) return 32;
+    int n = 0;
+    while (!(x &amp; 1U)) { x &gt;&gt;= 1; n++; }
+    return n;               /* or use __builtin_ctz(x) on GCC */
+}</code></pre>
+<h3 id="5-round-up-to-the-next-power-of-two">5. Round up to the next power of two</h3>
+<pre><code>uint32_t next_pow2(uint32_t x) {
+    if (x == 0) return 1;
+    x--;
+    x |= x &gt;&gt; 1; x |= x &gt;&gt; 2; x |= x &gt;&gt; 4; x |= x &gt;&gt; 8; x |= x &gt;&gt; 16;
+    return x + 1;
+}</code></pre>
+<h3 id="6-find-the-missing-number-1-n-1-with-one-missing-using-xor">6. Find the missing number (1..N+1 with one missing) using XOR</h3>
+<pre><code>uint32_t missing(const uint32_t *a, uint32_t n) {   /* n elements, values 1..n+1 */
+    uint32_t x = 0;
+    for (uint32_t i = 1; i &lt;= n + 1; i++) x ^= i;
+    for (uint32_t i = 0; i &lt; n; i++)      x ^= a[i];
+    return x;
+}</code></pre>
+<h3 id="7-reverse-the-bits-of-a-32-bit-word">7. Reverse the bits of a 32-bit word</h3>
+<pre><code>uint32_t rev32(uint32_t x) {
+    x = ((x &gt;&gt; 1) &amp; 0x55555555UL) | ((x &amp; 0x55555555UL) &lt;&lt; 1);
+    x = ((x &gt;&gt; 2) &amp; 0x33333333UL) | ((x &amp; 0x33333333UL) &lt;&lt; 2);
+    x = ((x &gt;&gt; 4) &amp; 0x0F0F0F0FUL) | ((x &amp; 0x0F0F0F0FUL) &lt;&lt; 4);
+    x = ((x &gt;&gt; 8) &amp; 0x00FF00FFUL) | ((x &amp; 0x00FF00FFUL) &lt;&lt; 8);
+    return (x &gt;&gt; 16) | (x &lt;&lt; 16);
+}</code></pre>
+<h3 id="8-check-if-two-integers-have-opposite-signs">8. Check if two integers have opposite signs</h3>
+<pre><code>int opposite_signs(int a, int b) { return (a ^ b) &lt; 0; }</code></pre>
+<h2 id="c2-memory-and-pointer-problems">C2. Memory and Pointer Problems</h2>
+<h3 id="1-implement-offsetof">1. Implement offsetof</h3>
+<pre><code>#define MY_OFFSETOF(type, member)  ((size_t)&amp;(((type *)0)-&gt;member))</code></pre>
+<h3 id="2-implement-container-of-get-the-struct-from-a-pointer-to-a-member">2. Implement container_of (get the struct from a pointer to a member)</h3>
+<pre><code>#define CONTAINER_OF(ptr, type, member) \
+    ((type *)((char *)(ptr) - offsetof(type, member)))</code></pre>
+<p>Used heavily in embedded and kernel code with intrusive linked lists: the list node is a member inside your struct, and container_of recovers the whole struct.</p>
+<h3 id="3-sizeof-without-using-sizeof">3. sizeof without using sizeof</h3>
+<pre><code>#define MY_SIZEOF(x)  ((char *)(&amp;(x) + 1) - (char *)&amp;(x))</code></pre>
+<h3 id="4-determine-stack-growth-direction">4. Determine stack growth direction</h3>
+<pre><code>static int grows_down(char *outer) {
+    char inner;
+    return &amp;inner &lt; outer;           /* typical answer; technically unspecified */
+}
+int main(void) { char c; puts(grows_down(&amp;c) ? &quot;down&quot; : &quot;up&quot;); }</code></pre>
+<h3 id="5-fixed-size-block-memory-pool-no-malloc">5. Fixed-size block memory pool (no malloc)</h3>
+<pre><code>#define BLOCK_SIZE   32U             /* must be &gt;= sizeof(void *) */
+#define BLOCK_COUNT  8U</code></pre>
+<pre><code>static uint8_t pool[BLOCK_COUNT][BLOCK_SIZE] __attribute__((aligned(4)));
+static void *free_list;</code></pre>
+<pre><code>void pool_init(void) {
+    free_list = NULL;
+    for (uint32_t i = BLOCK_COUNT; i--; ) {
+        *(void **)pool[i] = free_list;       /* store next pointer in the block */
+        free_list = pool[i];
+    }
+}</code></pre>
+<pre><code>void *pool_alloc(void) {
+    void *p = free_list;
+    if (p) free_list = *(void **)p;
+    return p;                                /* NULL when exhausted             */
+}</code></pre>
+<pre><code>void pool_free(void *p) {
+    *(void **)p = free_list;
+    free_list = p;
+}</code></pre>
+<p>Allocation and free take constant time and cause no fragmentation. If used from several contexts, wrap alloc and free in a critical section.</p>
+<h3 id="6-implement-itoa">6. Implement itoa</h3>
+<pre><code>char *my_itoa(int32_t v, char *buf) {
+    char tmp[12]; int i = 0, n = 0;
+    uint32_t u = (v &lt; 0) ? (uint32_t)(-(int64_t)v) : (uint32_t)v;
+    if (u == 0) tmp[i++] = &#x27;0&#x27;;
+    while (u) { tmp[i++] = (char)(&#x27;0&#x27; + u % 10U); u /= 10U; }
+    if (v &lt; 0) buf[n++] = &#x27;-&#x27;;
+    while (i--) buf[n++] = tmp[i];
+    buf[n] = &#x27;\0&#x27;;
+    return buf;
+}</code></pre>
+<h3 id="7-reverse-a-linked-list-and-detect-a-cycle">7. Reverse a linked list and detect a cycle</h3>
+<pre><code>typedef struct Node { int v; struct Node *next; } Node;</code></pre>
+<pre><code>Node *reverse(Node *h) {
+    Node *prev = NULL;
+    while (h) { Node *nx = h-&gt;next; h-&gt;next = prev; prev = h; h = nx; }
+    return prev;
+}</code></pre>
+<pre><code>bool has_cycle(Node *h) {
+    Node *s = h, *f = h;
+    while (f &amp;&amp; f-&gt;next) {
+        s = s-&gt;next; f = f-&gt;next-&gt;next;
+        if (s == f) return true;
+    }
+    return false;
+}</code></pre>
+<h2 id="c3-embedded-design-problems">C3. Embedded Design Problems</h2>
+<h3 id="1-moving-average-filter">1. Moving average filter</h3>
+<pre><code>#define N 8U
+typedef struct { uint16_t buf[N]; uint32_t sum; uint8_t idx, count; } MovAvg;</code></pre>
+<pre><code>uint16_t movavg_update(MovAvg *m, uint16_t x) {
+    m-&gt;sum -= m-&gt;buf[m-&gt;idx];                 /* remove oldest sample             */
+    m-&gt;buf[m-&gt;idx] = x;
+    m-&gt;sum += x;
+    m-&gt;idx = (uint8_t)((m-&gt;idx + 1U) % N);
+    if (m-&gt;count &lt; N) m-&gt;count++;
+    return (uint16_t)(m-&gt;sum / m-&gt;count);
+}</code></pre>
+<h3 id="2-software-timers-with-callbacks">2. Software timers with callbacks</h3>
+<pre><code>typedef struct {
+    uint32_t period, last;
+    bool     repeat, active;
+    void   (*cb)(void);
+} SwTimer;</code></pre>
+<pre><code>void swtimer_poll(SwTimer *t, uint32_t now) {
+    if (!t-&gt;active) return;
+    if ((uint32_t)(now - t-&gt;last) &gt;= t-&gt;period) {
+        t-&gt;last += t-&gt;period;
+        if (!t-&gt;repeat) t-&gt;active = false;
+        t-&gt;cb();
+    }
+}</code></pre>
+<h3 id="3-parse-a-uart-frame-with-a-state-machine">3. Parse a UART frame with a state machine</h3>
+<p>Frame format: start byte 0xAA, length byte (payload size), payload bytes, checksum (XOR of length and all payload bytes).</p>
+<pre><code>typedef enum { S_START, S_LEN, S_DATA, S_CHK } PState;</code></pre>
+<pre><code>typedef struct {
+    PState  st;
+    uint8_t len, idx, chk;
+    uint8_t data[32];
+} Parser;</code></pre>
+<pre><code>/* returns true when a complete, valid frame is in p-&gt;data[0..len-1] */
+bool parser_feed(Parser *p, uint8_t b) {
+    switch (p-&gt;st) {
+    case S_START:
+        if (b == 0xAAU) p-&gt;st = S_LEN;
+        break;
+    case S_LEN:
+        /* reject bad length */
+        if (b == 0U || b &gt; sizeof p-&gt;data) { p-&gt;st = S_START; break; }
+        p-&gt;len = b; p-&gt;idx = 0; p-&gt;chk = b; p-&gt;st = S_DATA;
+        break;
+    case S_DATA:
+        p-&gt;data[p-&gt;idx++] = b;
+        p-&gt;chk ^= b;
+        if (p-&gt;idx == p-&gt;len) p-&gt;st = S_CHK;
+        break;
+    case S_CHK:
+        p-&gt;st = S_START;
+        return (b == p-&gt;chk);
+    }
+    return false;
+}</code></pre>
+<p>Points interviewers like: resynchronize on errors, bound-check the length, do not block, and process one byte at a time so it works from an ISR or a DMA buffer.</p>
+<h3 id="4-switch-debounce-with-a-shift-register">4. Switch debounce with a shift register</h3>
+<pre><code>/* call every 1 ms with the raw pin state */
+bool debounce(bool raw) {
+    static uint8_t hist = 0;
+    static bool state = false;
+    hist = (uint8_t)((hist &lt;&lt; 1) | (raw ? 1U : 0U));
+    if (hist == 0xFFU) state = true;          /* 8 consecutive ones  */
+    else if (hist == 0x00U) state = false;    /* 8 consecutive zeros */
+    return state;
+}</code></pre>
+<h3 id="5-safely-share-a-32-bit-counter-between-isr-and-main-on-an-8-16-bit-mcu">5. Safely share a 32-bit counter between ISR and main on an 8/16-bit MCU</h3>
+<pre><code>static volatile uint32_t counter;             /* incremented in an ISR            */</code></pre>
+<pre><code>uint32_t counter_read(void) {
+    uint32_t v;
+    uint32_t pm = __get_PRIMASK();            /* AVR: save SREG instead           */
+    __disable_irq();
+    v = counter;                              /* multi-byte read is not atomic    */
+    __set_PRIMASK(pm);
+    return v;
+}</code></pre>
+<p>Alternative without disabling interrupts: read twice until both reads are equal.</p>
+<h3 id="6-average-adc-samples-without-overflow">6. Average ADC samples without overflow</h3>
+<pre><code>uint16_t avg_u16(const uint16_t *a, uint32_t n) {
+    uint32_t sum = 0;                         /* 32-bit accumulator avoids overflow */
+    for (uint32_t i = 0; i &lt; n; i++) sum += a[i];
+    return (uint16_t)(sum / n);
+}</code></pre>
+<h3 id="7-crc-16-ccitt-polynomial-0x1021">7. CRC-16 (CCITT, polynomial 0x1021)</h3>
+<pre><code>uint16_t crc16_ccitt(const uint8_t *d, size_t n) {
+    uint16_t crc = 0xFFFFU;
+    while (n--) {
+        crc ^= (uint16_t)(*d++) &lt;&lt; 8;
+        for (int i = 0; i &lt; 8; i++)
+            crc = (crc &amp; 0x8000U) ? (uint16_t)((crc &lt;&lt; 1) ^ 0x1021U) : (uint16_t)(crc &lt;&lt; 1);
+    }
+    return crc;
+}</code></pre>
+<h2 id="c4-predict-the-output">C4. Predict the Output</h2>
+<div class="tw"><table><tr><th><strong>Snippet</strong></th><th><strong>Answer and reason</strong></th></tr><tr><td><code>uint8_t x = 255; x++;</code></td><td>x becomes 0 (unsigned wrap-around)</td></tr><tr><td><code>unsigned i = 3; if (i - 5 &gt; 0)</code></td><td>True: i - 5 wraps to a huge unsigned value</td></tr><tr><td><code>#define SQ(x) x*x</code> then <code>SQ(2+3)</code></td><td>11, because it expands to 2+3*2+3</td></tr><tr><td><code>-1 &gt; 1U</code></td><td>True: -1 converts to unsigned (4294967295)</td></tr><tr><td><code>sizeof(&#x27;a&#x27;)</code> in C</td><td>4 (character constants are int in C; 1 in C++)</td></tr><tr><td><code>int a = 5; a = a++ + ++a;</code></td><td>Undefined behavior (unsequenced modifications)</td></tr><tr><td><code>printf(&quot;%d %d&quot;, 5/2, -5/2)</code></td><td>2 and -2 (integer division truncates toward zero)</td></tr><tr><td><code>-5 % 2</code></td><td>-1 (sign follows the dividend)</td></tr><tr><td><code>0.1 + 0.2 == 0.3</code></td><td>False (binary floating-point rounding)</td></tr><tr><td><code>uint8_t a = 200, b = 100; a + b &gt; 255</code></td><td>True: promoted to int, sum is 300</td></tr><tr><td><code>uint16_t x = 0xFFFF; (x + 1)</code></td><td>65536 (int). Only 0 if stored back into a uint16_t</td></tr><tr><td><code>char s[] = &quot;hi&quot;; sizeof(s) and strlen(s)</code></td><td>3 and 2 (sizeof counts the null terminator)</td></tr><tr><td><code>void f(int a[10]) { sizeof(a); }</code></td><td>Size of a pointer (4 or 8), not 40</td></tr><tr><td><code>char *p = &quot;abc&quot;; p[0] = &#x27;x&#x27;;</code></td><td>Undefined behavior: string literal is read-only</td></tr><tr><td><code>int x = 7; x &lt;&lt; 33;</code></td><td>Undefined behavior: shift count at least the type width</td></tr><tr><td><code>(int8_t)200</code> (on typical compilers)</td><td>-56 (implementation-defined conversion)</td></tr><tr><td><code>volatile int v; int a = v + v;</code></td><td>Two separate reads of v are performed</td></tr></table></div>
+<h2 id="c5-how-to-approach-a-coding-round">C5. How to Approach a Coding Round</h2>
+<ul>
+<li>Restate the problem and confirm input ranges, types, and whether it runs in an ISR, on a tiny MCU, or with an OS.</li>
+<li>Ask about constraints: no malloc, limited RAM, no floating point, thread safety.</li>
+<li>State your plan before coding. Write clean C with fixed-width types and clear names.</li>
+<li>Handle edge cases out loud: zero length, NULL pointers, buffer full or empty, wrap-around, overflow.</li>
+<li>Test with a small example by hand, including at least one edge case.</li>
+<li>Explain complexity and memory use. Mention how you would test it on hardware (logic analyzer, unit tests on PC).</li>
+<li>If you get stuck, talk through what you know and try a simpler version first. Interviewers value reasoning as much as the final answer.</li>
+<li>Be ready to explain every line of anything on your resume. Bring one project you can explain end to end: hardware, firmware architecture, a bug you debugged, and what you learned.</li>
+</ul>

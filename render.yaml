@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: codeshelf
+    runtime: node
+    buildCommand: echo ok
+    startCommand: node server.js
